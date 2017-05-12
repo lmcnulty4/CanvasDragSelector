@@ -1,0 +1,11 @@
+{
+  "name": "canvasdragselector",
+  "version": "1.0.0",
+  "description": "Allows the dragging and selecting of arbitary canvas elements with a selection rectangle.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Luke McNulty",
+  "license": "ISC"
+}

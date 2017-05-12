@@ -1,0 +1,1 @@
+export { default as canvasDragSelector } from "./src/dragSelector";
