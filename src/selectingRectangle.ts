@@ -5,7 +5,6 @@ export class Rect {
     private rectCanvas: HTMLCanvasElement;
     private rectContext: CanvasRenderingContext2D;
     private anchor: [number, number]; // x, y
-    private canvasPosition: [number, number]; // top, left
     private dimensions: [number, number, number, number]; // x, y, w, h
     private widthIncreasing: boolean;
     private heightIncreasing: boolean;
