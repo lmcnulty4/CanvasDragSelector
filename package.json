@@ -4,8 +4,15 @@
   "description": "Allows the dragging and selecting of arbitary canvas elements with a selection rectangle.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "tsc": "tsc",
+    "rollup": "rollup -c"
   },
   "author": "Luke McNulty",
-  "license": "ISC"
+  "license": "ISC",
+  "devDependencies": {
+    "rollup": "^0.41.6",
+    "rollup-plugin-node-resolve": "^3.0.0",
+    "typescript": "^2.3.2"
+  }
 }

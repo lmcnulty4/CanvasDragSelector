@@ -1,3 +1,5 @@
 /node_modules
 /.vscode
 /private
+/src/*.js
+/src/*.js.map
