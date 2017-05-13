@@ -15,25 +15,24 @@ export class Rect {
         this.dimensions = [anchorPoint[0], anchorPoint[1], 0, 0];
         this.rootCavnas = canvas;
         this.createCanvas();
-        this.positionCanvas();
+        this.styleCanvas();
         this.rectContext = this.rectCanvas.getContext("2d");
         if (rectStyler) { rectStyler(this.rectContext); } else { this.defaultRectStyler(this.rectContext); }
     }
 
     private createCanvas() {
         this.rectCanvas = document.createElement("canvas");
-        this.rectCanvas.width = this.rootCavnas.width;
-        this.rectCanvas.height = this.rootCavnas.height;
-        this.rectCanvas.style.position = "absolute";
-        this.rectCanvas.style.zIndex = ((Number(this.rootCavnas.style.zIndex)|0) || 0) + 1 + "";
-        this.rectCanvas.style.pointerEvents = "none";
         this.rootCavnas.parentNode.appendChild(this.rectCanvas);
     }
 
-    private positionCanvas() {
-        let boundingRect = this.rootCavnas.getBoundingClientRect();
-        this.rectCanvas.style.top = boundingRect.top + "px";
-        this.rectCanvas.style.left = boundingRect.left + "px";
+    private styleCanvas() {
+        this.rectCanvas.width = this.rootCavnas.width;
+        this.rectCanvas.height = this.rootCavnas.height;
+        this.rectCanvas.style.position = "absolute";
+        this.rectCanvas.style.top = "0px";
+        this.rectCanvas.style.left = "0px";
+        this.rectCanvas.style.zIndex = ((Number(this.rootCavnas.style.zIndex)|0) || 0) + 1 + "";
+        this.rectCanvas.style.pointerEvents = "none";
     }
 
     private recomputeRectDimensions(mousePosition: [number, number]) {
@@ -44,15 +43,15 @@ export class Rect {
         let oldHeight = this.dimensions[2];
         let oldWidth = this.dimensions[3];
         if (movement[0] < 1 || movement[0] * 2 < this.dimensions[2]) {
-            this.dimensions[2] = Math.abs(this.anchor[0] - mousePosition[0]); 
             this.dimensions[0] = mousePosition[0];
+            this.dimensions[2] = Math.abs(this.anchor[0] - mousePosition[0]); 
         } else {
             this.dimensions[0] = this.anchor[0];
             this.dimensions[2] = movement[0];
         }
         if (movement[1] < 1 || movement[1] * 2 < this.dimensions[3]) {
-            this.dimensions[3] = Math.abs(this.anchor[1] - mousePosition[1]);
             this.dimensions[1] = mousePosition[1];
+            this.dimensions[3] = Math.abs(this.anchor[1] - mousePosition[1]);
         } else {
             this.dimensions[1] = this.anchor[1];
             this.dimensions[3] = movement[1];
