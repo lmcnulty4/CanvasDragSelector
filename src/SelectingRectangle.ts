@@ -3,6 +3,7 @@ export class Rect {
 
     private rootCavnas: HTMLCanvasElement;
     private rectCanvas: HTMLCanvasElement;
+    private rectCanvasParent: HTMLDivElement;
     private rectContext: CanvasRenderingContext2D;
     private anchor: [number, number]; // x, y
     private dimensions: [number, number, number, number]; // x, y, w, h
@@ -20,13 +21,21 @@ export class Rect {
     }
 
     private createCanvas() {
+        this.rectCanvasParent = document.createElement("div");
+        this.rootCavnas.parentNode.appendChild(this.rectCanvasParent);
         this.rectCanvas = document.createElement("canvas");
-        this.rootCavnas.parentNode.appendChild(this.rectCanvas);
+        this.rectCanvasParent.appendChild(this.rectCanvas);
     }
 
     private styleCanvas() {
+        this.rectCanvasParent.style.position = "absolute";
+        this.rectCanvasParent.style.top = "0px";
+        this.rectCanvasParent.style.left = "0px";
+        this.rectCanvasParent.style.padding = "inherit";
+        this.rectCanvasParent.style.margin = "inherit";
         this.rectCanvas.width = this.rootCavnas.width;
         this.rectCanvas.height = this.rootCavnas.height;
+        this.rectCanvas.style.cssText = document.defaultView.getComputedStyle(this.rootCavnas, "").cssText;
         this.rectCanvas.style.position = "absolute";
         this.rectCanvas.style.top = "0px";
         this.rectCanvas.style.left = "0px";
@@ -83,7 +92,9 @@ export class Rect {
     }
 
     remove() {
+        this.rectContext = null;
         this.rectCanvas.parentNode.removeChild(this.rectCanvas);
+        this.rectCanvasParent.parentNode.removeChild(this.rectCanvasParent);
     }
 
     // Optimisation functions
