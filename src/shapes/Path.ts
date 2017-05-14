@@ -66,7 +66,7 @@ export class Path implements IShape {
         let topRight: [number, number] = [rect[0] + rect[2], rect[1] + rect[3]];
         let bottomRight: [number, number] = [rect[0] + rect[2], rect[1]];
         return (this.endProject(lineStart, lineEnd, topLeft, topRight, bottomRight, bottomLeft) && 
-            this.cornersSameSide([bottomLeft, bottomRight, topRight, topLeft], lineStart, lineEnd));
+            this.cornersSameSide(lineStart, lineEnd, bottomLeft, bottomRight, topRight, topLeft));
     }
 
     private endProject(lineStart: Point, lineEnd: Point, tl: [number, number], tr: [number, number], br: [number, number], bl: [number, number]) {
@@ -77,18 +77,18 @@ export class Path implements IShape {
         return true;
     }
 
-    private cornersSameSide(corners: [[number, number], [number, number], [number, number], [number, number]], lineStart: Point, lineEnd: Point) {
+    private cornersSameSide(lineStart: Point, lineEnd: Point, bottomLeft: [number, number], bottomRight: [number, number], topRight: [number, number], topLeft: [number, number]) {
         let xC = lineStart[0] - lineEnd[0];
         let yC = lineEnd[1] - lineStart[1]; 
         let os = lineEnd[0] * lineStart[1] - lineStart[0] * lineEnd[1];
         let v: number, sign: number;
-        v = corners[3][0] * yC + corners[3][1] * xC + os;
+        v = topLeft[0] * yC + topLeft[1] * xC + os;
         sign = (v < 0 ? -1 : (v > 0 ? 1 : 0));
-        v = corners[2][0] * yC + corners[2][1] * xC + os;
+        v = topRight[0] * yC + topRight[1] * xC + os;
         if ((v < 0 && sign > 0) || (v > 0 && sign < 0)) return true;
-        v = corners[1][0] * yC + corners[1][1] * xC + os;
+        v = bottomRight[0] * yC + bottomRight[1] * xC + os;
         if ((v < 0 && sign > 0) || (v > 0 && sign < 0)) return true;
-        v = corners[0][0] * yC + corners[0][1] * xC + os;
+        v = bottomLeft[0] * yC + bottomLeft[1] * xC + os;
         if ((v < 0 && sign > 0) || (v > 0 && sign < 0)) return true;
         return false;
     }
