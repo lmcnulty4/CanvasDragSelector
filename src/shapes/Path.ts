@@ -175,6 +175,102 @@ export class Path implements IShape {
 
 }
 
+class QuadraticBezierCurve {
+
+    // These P0, P1 and P2 are from the quadratic x = P0(t^2) + P1(t) + P2 (and similarly for y)
+    // I've gone off arrays
+    private p0x: number;
+    private p0y: number;
+    private p1x: number;
+    private p1y: number;
+    private p2x: number;
+    private p2y: number;
+    private xMin: number;
+    private xMax: number;
+    private yMin: number;
+    private yMax: number;
+    private endX: number;
+    private endY: number;
+
+    constructor(startPoint: Point, controlPoint: [number, number], endPoint: [number, number]) {
+        this.p0x = startPoint[0] - controlPoint[0] - controlPoint[0] + endPoint[0];
+        this.p0y = startPoint[1] - controlPoint[1] - controlPoint[1] + endPoint[1];
+        this.p1x = -2*(startPoint[0] - controlPoint[0]);
+        this.p1y = -2*(startPoint[1] - controlPoint[1]);
+        this.p2x = startPoint[0];
+        this.p2y = startPoint[1];
+        this.endX = endPoint[0];
+        this.endY = endPoint[1];
+        this.calculateAABB(startPoint, controlPoint, endPoint);
+    }
+
+    // https://pomax.github.io/bezierinfo/#boundingbox
+    // https://pomax.github.io/bezierinfo/#extremities
+    private calculateAABB(startPoint: Point, controlPoint: [number, number], endPoint: [number, number]) {
+        // Derivative
+        let aX = 2 * this.p0x, aY = 2 * this.p0y;
+        let bX = this.p1x, bY = this.p1y;
+        let tX = -bX / aX, tY = -bY / aY;
+        // Set bounds
+        this.xMin = endPoint[0] < startPoint[0] ? endPoint[0] : startPoint[0], this.xMax = endPoint[0] > startPoint[0] ? endPoint[0] : startPoint[0];
+        this.yMin = endPoint[1] < startPoint[1] ? endPoint[1] : startPoint[1], this.yMax = endPoint[1] > startPoint[1] ? endPoint[1] : startPoint[1];
+        if (tX > 0 && tX < 1) {
+            let xt = this.evaluateBezier(startPoint[0], controlPoint[0], endPoint[0], tX);
+            if (xt < this.xMin) this.xMin = xt;
+            if (xt > this.xMax) this.xMax = xt;
+        }
+        if (tY > 0 && tY < 1) {
+            let xt = this.evaluateBezier(startPoint[1], controlPoint[1], endPoint[1], tY);
+            if (xt < this.yMin) this.yMin = xt;
+            if (xt > this.yMax) this.yMax = xt;
+        }
+    }
+    
+    // Note: In 1 dimension only
+    private evaluateBezier(startPoint:number, controlPoint: number, endPoint: number, t: number) {
+        return (1 - t) * (1 - t) * startPoint + 2 * (1 - t) * t * controlPoint + t * t * endPoint;
+    }
+
+    intersects(rect: [number, number, number, number]): boolean {
+        // If either start or end point is inside rect, it intersects
+        if (rect[0] <= this.p2x && rect[0] + rect[2] >= this.p2x && rect[1] <= this.p2y && rect[1] + rect[3] >= this.p2y) return true;
+        if (rect[0] <= this.endX && rect[0] + rect[2] >= this.endX && rect[1] <= this.endY && rect[1] + rect[3] >= this.endY) return true;
+        // If it doesn't intersect bounding box, exit
+        if (!Rectangle.rectanglesIntersect(rect, [this.xMin, this.yMin, this.xMax - this.xMin, this.yMax - this.yMin])) return false;
+        // check each line
+        // top line
+        if (this.curveIntersectsLine(this.p0y, this.p1y, this.p2y - rect[1], this.p0x, this.p1x, this.p2x, rect[0], rect[0] + rect[2])) return true;
+        // right line
+        if (this.curveIntersectsLine(this.p0x, this.p1x, this.p2x - (rect[0] + rect[2]), this.p0y, this.p1y, this.p2y, rect[1], rect[0] + rect[2])) return true;
+        // bottom line
+        if (this.curveIntersectsLine(this.p0y, this.p1y, this.p2y - (rect[1] + rect[3]), this.p0x, this.p1x, this.p2x, rect[0], rect[0] + rect[2])) return true;
+        // left line
+        if (this.curveIntersectsLine(this.p0x, this.p1x, this.p2x - rect[0], this.p0y, this.p1y, this.p2y, rect[1], rect[0] + rect[2])) return true;
+        return false;
+    }
+    
+    private curveIntersectsLine(dA: number, dB: number, dC: number, a: number, b: number, c: number, segmentMin: number, segmentMax: number) {
+        let a2 = 2*dA, ac = 4 * dA * dC, dis = dB * dB - ac;
+        if (dis > 0) {
+            let disQrt = Math.sqrt(dis);
+            let r1 = (-dB + disQrt) / (a2);
+            if (r1 > 0 && r1 < 1 && this.isRootOnSegment(a, b, c, r1, segmentMin, segmentMax)) return true;
+            let r2 = (-dB - disQrt) / (a2);
+            if (r2 > 0 && r2 < 1 && this.isRootOnSegment(a, b, c, r2, segmentMin, segmentMax)) return true;
+        } else if (dis === 0) {
+            let r1 = -dB / (a2);
+            if (r1 > 0 && r1 < 1 && this.isRootOnSegment(a, b, c, r1, segmentMin, segmentMax)) return true;
+        }
+        return false;
+    }
+
+    private isRootOnSegment(a: number, b: number, c: number, t: number, segmentMin: number, segmentMax: number) {
+        let val = a * t * t + b * t + c;
+        return val > segmentMin && val < segmentMax;
+    }
+
+}
+
 class CubicBezierCurve {
 
     // These P0, P1, P2 and P3 are from the cubic x = P0(t^3) + P1(t^2) + P2(t) + P3 (and similarly for y)
@@ -258,11 +354,14 @@ class CubicBezierCurve {
         if (rect[0] <= this.p3x && rect[0] + rect[2] >= this.p3x && rect[1] <= this.p3y && rect[1] + rect[3] >= this.p3y) return true;
         if (rect[0] <= this.endX && rect[0] + rect[2] >= this.endX && rect[1] <= this.endY && rect[1] + rect[3] >= this.endY) return true;
         // If it doesn't intersect bounding box, exit
-        if (!Rectangle.rectanglesIntersect(rect, [this.xMin, this.yMin, this.xMax - this.xMin, this.yMax - this.yMin])) return false;
+        let width = this.xMax - this.xMin,
+            height = this.yMax - this.yMin;
+        if (!Rectangle.rectanglesIntersect(rect, [this.xMin, this.yMin, width, height])) return false;
         return true;
     }
 
     // https://www.particleincell.com/2013/cubic-line-intersection/
+    // Optimisations will be made soon, due to lines always being axis aligned
     private hasCubicRootInSegment(a: number, b: number, c: number, d: number, lineSegment: [number, number, number, number], bezierPoints: number[]): boolean {
         let A = b/a;
         let B = c/a;
