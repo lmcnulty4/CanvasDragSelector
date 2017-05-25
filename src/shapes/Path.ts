@@ -175,42 +175,44 @@ export class Path implements IShape {
 
 }
 
-class QuadraticBezierCurve {
+export class QuadraticBezierCurve {
 
-    // These P0, P1 and P2 are from the quadratic x = P0(t^2) + P1(t) + P2 (and similarly for y)
-    // I've gone off arrays
-    private p0x: number;
-    private p0y: number;
-    private p1x: number;
-    private p1y: number;
-    private p2x: number;
-    private p2y: number;
+    // For initial checks - if any of these is inside rect then it intersects
+    private startX: number;
+    private startY: number;
+    private endX: number;
+    private endY: number;
+    // AABB:
     private xMin: number;
     private xMax: number;
     private yMin: number;
     private yMax: number;
-    private endX: number;
-    private endY: number;
+    // Intersection coefficients:
+    private mbX: number;
+    private mbY: number;
+    private taX: number;
+    private taY: number;
+    private qX: number;
+    private qY: number;
 
     constructor(startPoint: Point, controlPoint: [number, number], endPoint: [number, number]) {
-        this.p0x = startPoint[0] - controlPoint[0] - controlPoint[0] + endPoint[0];
-        this.p0y = startPoint[1] - controlPoint[1] - controlPoint[1] + endPoint[1];
-        this.p1x = -2*(startPoint[0] - controlPoint[0]);
-        this.p1y = -2*(startPoint[1] - controlPoint[1]);
-        this.p2x = startPoint[0];
-        this.p2y = startPoint[1];
+        this.startX = startPoint[0];
+        this.startY = startPoint[1];
         this.endX = endPoint[0];
         this.endY = endPoint[1];
+        this.mbX = -2 * (startPoint[0] - controlPoint[0]);
+        this.mbY = -2 * (startPoint[1] - controlPoint[1]);
+        this.taX = 2 * (startPoint[0] - controlPoint[0] - controlPoint[0] + endPoint[0]);
+        this.taY = 2 * (startPoint[1] - controlPoint[1] - controlPoint[1] + endPoint[1]);
+        this.qX = this.mbX * this.mbX - 2 * (this.taX * startPoint[0]);
+        this.qY = this.mbY * this.mbY - 2 * (this.taY * startPoint[1]);
         this.calculateAABB(startPoint, controlPoint, endPoint);
     }
 
-    // https://pomax.github.io/bezierinfo/#boundingbox
-    // https://pomax.github.io/bezierinfo/#extremities
     private calculateAABB(startPoint: Point, controlPoint: [number, number], endPoint: [number, number]) {
-        // Derivative
-        let aX = 2 * this.p0x, aY = 2 * this.p0y;
-        let bX = this.p1x, bY = this.p1y;
-        let tX = -bX / aX, tY = -bY / aY;
+        // t value for derivative
+        let tX = -this.mbX / this.taX;
+        let tY = -this.mbY / this.taY;
         // Set bounds
         this.xMin = endPoint[0] < startPoint[0] ? endPoint[0] : startPoint[0], this.xMax = endPoint[0] > startPoint[0] ? endPoint[0] : startPoint[0];
         this.yMin = endPoint[1] < startPoint[1] ? endPoint[1] : startPoint[1], this.yMax = endPoint[1] > startPoint[1] ? endPoint[1] : startPoint[1];
@@ -225,50 +227,49 @@ class QuadraticBezierCurve {
             if (xt > this.yMax) this.yMax = xt;
         }
     }
-    
     // Note: In 1 dimension only
     private evaluateBezier(startPoint:number, controlPoint: number, endPoint: number, t: number) {
         return (1 - t) * (1 - t) * startPoint + 2 * (1 - t) * t * controlPoint + t * t * endPoint;
     }
 
-    intersects(rect: [number, number, number, number]): boolean {
+    // Assume transformation of rect & this curve identical 
+    intersects(rect: [number, number, number, number]) :boolean {
         // If either start or end point is inside rect, it intersects
-        if (rect[0] <= this.p2x && rect[0] + rect[2] >= this.p2x && rect[1] <= this.p2y && rect[1] + rect[3] >= this.p2y) return true;
+        if (rect[0] <= this.startX && rect[0] + rect[2] >= this.startX && rect[1] <= this.startY && rect[1] + rect[3] >= this.startY) return true;
         if (rect[0] <= this.endX && rect[0] + rect[2] >= this.endX && rect[1] <= this.endY && rect[1] + rect[3] >= this.endY) return true;
         // If it doesn't intersect bounding box, exit
         if (!Rectangle.rectanglesIntersect(rect, [this.xMin, this.yMin, this.xMax - this.xMin, this.yMax - this.yMin])) return false;
         // check each line
-        // top line
-        if (this.curveIntersectsLine(this.p0y, this.p1y, this.p2y - rect[1], this.p0x, this.p1x, this.p2x, rect[0], rect[0] + rect[2])) return true;
-        // right line
-        if (this.curveIntersectsLine(this.p0x, this.p1x, this.p2x - (rect[0] + rect[2]), this.p0y, this.p1y, this.p2y, rect[1], rect[0] + rect[2])) return true;
         // bottom line
-        if (this.curveIntersectsLine(this.p0y, this.p1y, this.p2y - (rect[1] + rect[3]), this.p0x, this.p1x, this.p2x, rect[0], rect[0] + rect[2])) return true;
+        if (this.curveIntersectsLine(this.mbY, this.taY, this.qY, (rect[1] + rect[3]), this.taX, this.mbX, this.endX, rect[0], rect[0] + rect[2])) return true;
+        // right line
+        if (this.curveIntersectsLine(this.mbX, this.taX, this.qX, rect[0] + rect[2], this.taY, this.mbY, this.endY, rect[1], rect[1] + rect[3])) return true;
+        // top line
+        if (this.curveIntersectsLine(this.mbY, this.taY, this.qY, rect[1], this.taX, this.mbX, this.endX, rect[0], rect[0] + rect[2])) return true;
         // left line
-        if (this.curveIntersectsLine(this.p0x, this.p1x, this.p2x - rect[0], this.p0y, this.p1y, this.p2y, rect[1], rect[0] + rect[2])) return true;
+        if (this.curveIntersectsLine(this.mbX, this.taX, this.qX, rect[0], this.taY, this.mbY, this.endY, rect[1], rect[1] + rect[3])) return true;
         return false;
     }
-    
-    private curveIntersectsLine(dA: number, dB: number, dC: number, a: number, b: number, c: number, segmentMin: number, segmentMax: number) {
-        let a2 = 2*dA, ac = 4 * dA * dC, dis = dB * dB - ac;
-        if (dis > 0) {
-            let disQrt = Math.sqrt(dis);
-            let r1 = (-dB + disQrt) / (a2);
-            if (r1 > 0 && r1 < 1 && this.isRootOnSegment(a, b, c, r1, segmentMin, segmentMax)) return true;
-            let r2 = (-dB - disQrt) / (a2);
-            if (r2 > 0 && r2 < 1 && this.isRootOnSegment(a, b, c, r2, segmentMin, segmentMax)) return true;
-        } else if (dis === 0) {
-            let r1 = -dB / (a2);
-            if (r1 > 0 && r1 < 1 && this.isRootOnSegment(a, b, c, r1, segmentMin, segmentMax)) return true;
+
+    private curveIntersectsLine(mb: number, ta: number, q: number, offset: number, a: number, b: number, c: number, lineStart: number, lineEnd: number) {
+        let disc = q + 2 * ta * offset; // b^2 - 4ac
+        if (disc > 0) { // 2 roots
+            disc = Math.sqrt(disc);
+            let r1 = (mb + disc) / ta;
+            if (r1 > 0 && r1 < 1 && this.isRootOnSegment(a, b, c, r1, lineStart, lineEnd)) return true;
+            let r2 = (mb - disc) / ta;
+            if (r2 > 0 && r2 < 1 && this.isRootOnSegment(a, b, c, r2, lineStart, lineEnd)) return true;
+        } else if (disc === 0) {
+            let r1 = mb / ta;
+            if (r1 > 0 && r1 < 1 && this.isRootOnSegment(a, b, c, r1, lineStart, lineEnd)) return true;
         }
         return false;
     }
 
     private isRootOnSegment(a: number, b: number, c: number, t: number, segmentMin: number, segmentMax: number) {
-        let val = a * t * t + b * t + c;
+        let val = 0.5 * a * t * t - b * t + c;
         return val > segmentMin && val < segmentMax;
     }
-
 }
 
 class CubicBezierCurve {
