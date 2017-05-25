@@ -2,15 +2,14 @@ import { IShape } from "./base";
 import { TransformMatrix } from "../ContextCurrentTransformPolyfill";
 import { Rectangle } from "./Rectangle";
 
-type Point = [number, number, "M" | "L" | "Z"]; // x, y, type
-type QuadraticCurve = [number, number, number, number, "Q"]; // CPx, CPy, x, y, type
-type CuberBezierCurve = [number, number, number, number, number, number, "C"]; // CP1x, CP1y, CP2x, CP2y, x, y, type
+type Point = [number, number, "M" | "L" | "Z" | "Q" | "C"]; // x, y, type (in case of)
+type BezierCurve = [IBezierCurve, "Q" | "C"];
 
 export class Path implements IShape {
 
     readonly boundingBox: [number, number, number, number];
     private xform: TransformMatrix;
-    private points: (Point | QuadraticCurve | CuberBezierCurve)[];
+    private points: (Point | BezierCurve)[];
     private pointType: number;
 
     constructor(context: CanvasRenderingContext2D) {
@@ -31,13 +30,22 @@ export class Path implements IShape {
         this.points.push([null, null, "Z"]);
     }
 
-    // TODO: quadraticCurveTo, bezierCurveTo, arcTo -- all done via resampling unless can find a more optimal way
     quadraticCurveTo(controlPoint: [number, number], endPoint: [number, number]) {
-        this.points.push([controlPoint[0], controlPoint[1], endPoint[0], endPoint[1], "Q"]);
+        let startPoint = this.points.length === 0 ? (<Point>[0, 0, "M"]) : this.points[this.points.length - 1];
+        if (startPoint instanceof QuadraticBezierCurve || startPoint instanceof CubicBezierCurve) {
+            this.points.push([new QuadraticBezierCurve((<IBezierCurve>startPoint[0]).getEndPoint(), controlPoint, endPoint), "Q"]);
+        } else if (typeof startPoint[0] === "number") {
+            this.points.push([new QuadraticBezierCurve(<Point>startPoint, controlPoint, endPoint), "Q"]);
+        }
     }
 
     bezierCurveTo(controlPoint1: [number, number], controlPoint2: [number, number], endPoint: [number, number]) {
-        this.points.push([controlPoint1[0], controlPoint1[1], controlPoint2[0], controlPoint2[1], endPoint[0], endPoint[1], "C"]);
+        let startPoint = this.points.length === 0 ? (<Point>[0, 0, "M"]) : this.points[this.points.length - 1];
+        if (startPoint instanceof QuadraticBezierCurve || startPoint instanceof CubicBezierCurve) {
+            this.points.push([new CubicBezierCurve((<IBezierCurve>startPoint[0]).getEndPoint(), controlPoint1, controlPoint2, endPoint), "Q"]);
+        } else if (typeof startPoint[0] === "number") {
+            this.points.push([new CubicBezierCurve(<Point>startPoint, controlPoint1, controlPoint2, endPoint), "Q"]);
+        }
     }
 
     intersects(dimens: [number, number, number, number]) {
@@ -53,30 +61,23 @@ export class Path implements IShape {
                 if (this.lineIntersectsRect(<Point>previousSegment, <Point>currentSegment, transformedRect)) {
                     return true;
                 }
+                previousSegment = currentSegment;
             } else if (currentSegment[2] === "Z") {
                 if (this.lineIntersectsRect(<Point>previousSegment, <Point>segmentInitialSubPath, transformedRect)) {
                     return true;
                 }
-            } else if (currentSegment[4] === "Q") {
-
-            } else if (currentSegment[6] === "C") {
-                let bezierPoints = [
-                    (-previousSegment[0] + 3*currentSegment[0] + -3*(<CuberBezierCurve>currentSegment)[2] + (<CuberBezierCurve>currentSegment)[4]), // P0x
-                    (-previousSegment[1] + 3*currentSegment[1] + -3*(<CuberBezierCurve>currentSegment)[3] + (<CuberBezierCurve>currentSegment)[5]), // P0y
-                    (3*previousSegment[0] - 6*currentSegment[0] + 3*(<CuberBezierCurve>currentSegment)[2]), (3*previousSegment[1] - 6*currentSegment[1] + 3*(<CuberBezierCurve>currentSegment)[3]), // P1x, P1y
-                    (-3*previousSegment[0] + 3*currentSegment[0]), (-3*previousSegment[1] + 3*currentSegment[1]), // P2x, P2y
-                    previousSegment[0], previousSegment[1] // P3x, P3y
-                ];
-                // x, y, x+w, y
-                if (this.bezierIntersectsLineSegment(bezierPoints, [transformedRect[0], transformedRect[1], transformedRect[0] + transformedRect[2], transformedRect[1]])) return true;
-                // x+w, y, x+w, y+h
-                if (this.bezierIntersectsLineSegment(bezierPoints, [transformedRect[0] + transformedRect[2], transformedRect[1], transformedRect[0] + transformedRect[2], transformedRect[1] + transformedRect[3]])) return true;
-                // x+w, y+h, x, y+h
-                if (this.bezierIntersectsLineSegment(bezierPoints, [transformedRect[0] + transformedRect[2], transformedRect[1] + transformedRect[3], transformedRect[0], transformedRect[1] + transformedRect[3]])) return true;
-                // x, y+h, x, y
-                if (this.bezierIntersectsLineSegment(bezierPoints, [transformedRect[0], transformedRect[1] + transformedRect[3], transformedRect[0], transformedRect[1]])) return true;
+                previousSegment = currentSegment;
+            } else if (currentSegment[1] === "Q") {
+                if ((<QuadraticBezierCurve>currentSegment[0]).intersects(transformedRect)) {
+                    return true;
+                }
+                previousSegment = (<QuadraticBezierCurve>currentSegment[0]).getEndPoint();
+            } else if (currentSegment[1] === "C") {
+                if ((<CubicBezierCurve>currentSegment[0]).intersects(transformedRect)) {
+                    return true;
+                }
+                previousSegment = (<CubicBezierCurve>currentSegment[0]).getEndPoint();
             }
-            previousSegment = currentSegment;
         }
         return false;
     }
@@ -175,7 +176,12 @@ export class Path implements IShape {
 
 }
 
-export class QuadraticBezierCurve {
+interface IBezierCurve {
+    intersects(rect: [number, number, number, number]): boolean;
+    getEndPoint(): Point;
+}
+
+export class QuadraticBezierCurve implements IBezierCurve {
 
     // For initial checks - if any of these is inside rect then it intersects
     private startX: number;
@@ -207,6 +213,10 @@ export class QuadraticBezierCurve {
         this.qX = this.mbX * this.mbX - 2 * (this.taX * startPoint[0]);
         this.qY = this.mbY * this.mbY - 2 * (this.taY * startPoint[1]);
         this.calculateAABB(startPoint, controlPoint, endPoint);
+    }
+
+    getEndPoint() : [number, number, "M"] {
+        return [this.endX, this.endY, "M"];
     }
 
     private calculateAABB(startPoint: Point, controlPoint: [number, number], endPoint: [number, number]) {
@@ -272,7 +282,7 @@ export class QuadraticBezierCurve {
     }
 }
 
-export class CubicBezierCurve {
+export class CubicBezierCurve implements IBezierCurve {
 
     // These P0, P1, P2 and P3 are from the cubic x = P0(t^3) + P1(t^2) + P2(t) + P3 (and similarly for y)
     // P3X === startX, P3Y === startY
@@ -314,6 +324,10 @@ export class CubicBezierCurve {
         this.rX = (9 * this.p0x * this.p1x * this.p2x - 27 * this.p0x * this.p0x * this.startX - 2 * this.p1x * this.p1x * this.p1x) / (54 * this.p0x * this.p0x * this.p0x);
         this.rY = (9 * this.p0y * this.p1y * this.p2y - 27 * this.p0y * this.p0y * this.startY - 2 * this.p1y * this.p1y * this.p1y) / (54 * this.p0y * this.p0y * this.p0y);
         this.calculateAABB(startPoint, controlPoint1, controlPoint2, endPoint);
+    }
+
+    getEndPoint() : [number, number, "M"] {
+        return [this.endX, this.endY, "M"];
     }
 
     // Note: In 1 dimension only
