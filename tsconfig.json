@@ -7,7 +7,10 @@
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "removeComments": true,
-    "noImplicitAny": true
+    "noImplicitAny": true,
+    "lib": [
+      "es5", "dom", "es2015.core"
+    ]
   },
   "exclude": [
     "node_modules",
