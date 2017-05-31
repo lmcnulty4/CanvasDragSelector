@@ -172,8 +172,8 @@ export class QuadraticBezierCurve implements ICurve {
         this.startY = startPoint[2];
         this.endX = endPoint[0];
         this.endY = endPoint[1];
-        this.mbX = -2 * (startPoint[1] - controlPoint[0]);
-        this.mbY = -2 * (startPoint[2] - controlPoint[1]);
+        this.mbX = 2 * (startPoint[1] - controlPoint[0]);
+        this.mbY = 2 * (startPoint[2] - controlPoint[1]);
         this.taX = 2 * (startPoint[1] - controlPoint[0] - controlPoint[0] + endPoint[0]);
         this.taY = 2 * (startPoint[2] - controlPoint[1] - controlPoint[1] + endPoint[1]);
         this.qX = this.mbX * this.mbX - 2 * (this.taX * startPoint[1]);
@@ -187,8 +187,8 @@ export class QuadraticBezierCurve implements ICurve {
 
     private calculateAABB(startPoint: Point, controlPoint: [number, number], endPoint: [number, number]) {
         // t value for derivative
-        let tX = -this.mbX / this.taX;
-        let tY = -this.mbY / this.taY;
+        let tX = this.mbX / this.taX;
+        let tY = this.mbY / this.taY;
         // Set bounds
         this.xMin = endPoint[0] < startPoint[1] ? endPoint[0] : startPoint[1], this.xMax = endPoint[0] > startPoint[1] ? endPoint[0] : startPoint[1];
         this.yMin = endPoint[1] < startPoint[2] ? endPoint[1] : startPoint[2], this.yMax = endPoint[1] > startPoint[2] ? endPoint[1] : startPoint[2];
@@ -217,13 +217,13 @@ export class QuadraticBezierCurve implements ICurve {
         if (!Rectangle.rectanglesIntersect(rect, [this.xMin, this.yMin, this.xMax - this.xMin, this.yMax - this.yMin])) return false;
         // check each line
         // bottom line
-        if (this.curveIntersectsLine(this.mbY, this.taY, this.qY, (rect[1] + rect[3]), this.taX, this.mbX, this.endX, rect[0], rect[0] + rect[2])) return true;
+        if (this.curveIntersectsLine(this.mbY, this.taY, this.qY, rect[1] + rect[3], this.taX, this.mbX, this.startX, rect[0], rect[0] + rect[2])) return true;
         // right line
-        if (this.curveIntersectsLine(this.mbX, this.taX, this.qX, rect[0] + rect[2], this.taY, this.mbY, this.endY, rect[1], rect[1] + rect[3])) return true;
+        if (this.curveIntersectsLine(this.mbX, this.taX, this.qX, rect[0] + rect[2], this.taY, this.mbY, this.startY, rect[1], rect[1] + rect[3])) return true;
         // top line
-        if (this.curveIntersectsLine(this.mbY, this.taY, this.qY, rect[1], this.taX, this.mbX, this.endX, rect[0], rect[0] + rect[2])) return true;
+        if (this.curveIntersectsLine(this.mbY, this.taY, this.qY, rect[1], this.taX, this.mbX, this.startX, rect[0], rect[0] + rect[2])) return true;
         // left line
-        if (this.curveIntersectsLine(this.mbX, this.taX, this.qX, rect[0], this.taY, this.mbY, this.endY, rect[1], rect[1] + rect[3])) return true;
+        if (this.curveIntersectsLine(this.mbX, this.taX, this.qX, rect[0], this.taY, this.mbY, this.startY, rect[1], rect[1] + rect[3])) return true;
         return false;
     }
 
