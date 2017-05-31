@@ -44,7 +44,12 @@ export class Path implements IShape {
     arcTo(controlPoint: [number, number], endPoint: [number, number], radius: number) {
         this.ensureSubpathExists();
         let startPoint = this.getPreviousEndPoint();
-        this.subPath.push(["A", new Arc(startPoint, controlPoint, endPoint, radius)]);
+        let arc = new Arc(startPoint, controlPoint, endPoint, radius);
+        let arcStart = arc.getStartPoint();
+        if (!(arcStart[1] === startPoint[1] && arcStart[2] === startPoint[2])) {
+            this.subPath.push(arcStart);
+        }
+        this.subPath.push(["A", arc]);
     }
 
     private getPreviousEndPoint(): Point {
@@ -420,31 +425,38 @@ export class Arc implements ICurve {
         this.controlY = controlPoint[1];
         this.endX = endPoint[0];
         this.endY = endPoint[1];
-        let m1 = (controlPoint[1] - startPoint[2]) / (controlPoint[0] - startPoint[1]); // gradient of first tangent
-        let m2 = (controlPoint[1] - endPoint[1]) / (controlPoint[0] - endPoint[0]); // gradient of second tangent
-        this.getTangentPoints(m1, m2, startPoint);
-        this.getCenter(m1);
+        this.getTangentPoints(startPoint);
+        this.getCenter(startPoint);
         this.getAngles();
     }
 
-    private getTangentPoints(m1: number, m2: number, startPoint: Point) {
-        let theta = Math.atan((m1-m2)/(1+m1*m2));
-        let h = this.radius / Math.tan(theta/2);
-        this.tangent1X = this.controlX + (this.controlX > startPoint[1] ? -1 : 1) * Math.sqrt(h*h / (1 + m1*m1));
-        this.tangent1Y = this.controlY + (this.controlY > startPoint[2] ? -1 : 1) * Math.abs((this.tangent1X - this.controlX) * m1);
-        this.tangent2X = this.controlX + (this.endX > this.controlX ? 1 : -1) * Math.sqrt(h*h / (1 + m2*m2));
-        this.tangent2Y = this.controlY + (this.endY > this.controlY ? 1 : -1) * Math.sqrt((this.tangent2X - this.controlX) * m2);
+    private getTangentPoints(startPoint: Point) {
+        let magTan1 = Math.sqrt((this.controlX - startPoint[1]) * (this.controlX - startPoint[1]) + (this.controlY - startPoint[2]) * (this.controlY - startPoint[2]));
+        let magTan2 = Math.sqrt((this.endX - this.controlX) * (this.endX - this.controlX) + (this.endY - this.controlY) * (this.endY - this.controlY));
+        let beforeX = (this.controlX - startPoint[1]) / magTan1
+        let beforeY = (this.controlY - startPoint[2]) / magTan1;
+        let afterX = (this.endX - this.controlX) / magTan2;
+        let afterY = (this.endY - this.controlY) / magTan2;
+        let dist =  Math.abs(this.radius * (1 - (beforeX * afterX + beforeY * afterY)) / (beforeX * afterY - beforeY * afterX));
+        this.tangent1X = this.controlX - dist * beforeX;
+        this.tangent1Y = this.controlY - dist * beforeY;
+        this.tangent2X = this.controlX + dist * afterX;
+        this.tangent2Y = this.controlY + dist * afterY;
     }
 
-    private getCenter(m1: number) {
-        let mInv = -1/m1;
+    private getCenter(startPoint: Point) {
+        let mInv = - (this.controlX - startPoint[1]) / (this.controlY - startPoint[2]);
         this.centerX = this.tangent1X + Math.sqrt(this.radius*this.radius/(1+mInv*mInv));
-        this.centerY = this.tangent1Y + Math.abs((this.centerX - this.tangent1X) * mInv)
+        this.centerY = this.tangent1Y + (this.centerX - this.tangent1X) * mInv;
     }
 
     private getAngles() {
         this.startAngle = Math.atan2(this.tangent1Y - this.centerY, this.tangent1X - this.centerX);
         this.endAngle = Math.atan2(this.tangent2Y - this.centerY, this.tangent2X - this.centerX);
+    }
+
+    getStartPoint(): Point {
+        return ["L", this.tangent1X, this.tangent1Y];
     }
 
     getEndPoint(): Point {
@@ -477,17 +489,15 @@ export class Arc implements ICurve {
         // x^2 + y^2 = r^2
         // y = mx + c with m = 0 => y = c = axisDistance
         // x^2 + axisDistance^2 = r^2, x = sqrt(r^2 - axisDistance^2)
-        let tosqrtX = this.radius * this.radius - axisDistance * axisDistance;
-        if (tosqrtX > 0) {
-            let xIntcpt = Math.sqrt(tosqrtX);
-            if (xIntcpt < startPoint || xIntcpt > endPoint) return false;
-            let tosqrtY = this.radius * this.radius - xIntcpt * xIntcpt;
-            if (tosqrtY > 0) {
-                let yIntcpt = Math.sqrt(tosqrtY);
-                let angle = Math.atan2(yIntcpt - this.centerY, xIntcpt - this.centerX);
-                return angle >= this.startAngle && angle <= this.endAngle;
-            }
-        }
+        if (this.radius < Math.abs(axisDistance)) return false; // if radius < |axisDistance - centreX| then no intsct (centreX = 0);
+        let xIntcpt1 = Math.sqrt(this.radius * this.radius - axisDistance * axisDistance), xIntcpt2 = -xIntcpt1;
+        // Intcpt at (xIntcpt, axisDistance) and (-xIntcpt, axisDistance) -> must check if this point is within segments (circle & line)
+        let angle1 = Math.atan2(axisDistance, xIntcpt1);
+        //if (angle1 >= this.startAngle && angle1 <= this.endAngle && xIntcpt1 >= startPoint && xIntcpt1 <= endPoint) return true;
+        if (this.betweenArc(angle1) && xIntcpt1 >= startPoint && xIntcpt1 <= endPoint) return true;
+        let angle2 = Math.atan2(axisDistance, xIntcpt2);
+        //if (angle2 >= this.startAngle && angle2 <= this.endAngle && xIntcpt2 >= startPoint && xIntcpt2 <= endPoint) return true;
+        if (this.betweenArc(angle2) && xIntcpt2 >= startPoint && xIntcpt2 <= endPoint) return true;
         return false;
     }
 
@@ -495,18 +505,21 @@ export class Arc implements ICurve {
         // x^2 + y^2 = r^2
         // y = mx + c with m = undefined... x = (y - c) / undefined
         // y^2 + axisDistance^2 = r^2, y = sqrt(r^2 - axisDistance^2)
-        let tosqrtY = this.radius * this.radius - axisDistance * axisDistance;
-        if (tosqrtY > 0) {
-            let yIntcpt = Math.sqrt(tosqrtY);
-            if (yIntcpt < startPoint || yIntcpt > endPoint) return false;
-            let tosqrtX = this.radius * this.radius - yIntcpt * yIntcpt;
-            if (tosqrtX > 0) {
-                let xIntcpt = Math.sqrt(tosqrtX);
-                let angle = Math.atan2(yIntcpt - this.centerY, xIntcpt - this.centerX);
-                return angle >= this.startAngle && angle <= this.endAngle;
-            }
-        }
+        if (this.radius < Math.abs(axisDistance)) return false; // if radius < |axisDistance - centreX| then no intsct (centreX = 0);
+        let yIntcpt1 = Math.sqrt(this.radius * this.radius - axisDistance * axisDistance), yIntcpt2 = -yIntcpt1;
+        // Intcpt at (axisDistance, yIntcpt) and (axisDistance, -yIntcpt) -> must check if this point is within segments (circle & line)
+        let angle1 = Math.atan2(yIntcpt1, axisDistance);
+        //if (angle1 >= this.startAngle && angle1 <= this.endAngle && yIntcpt1 >= startPoint && yIntcpt1 <= endPoint) return true;
+        if (this.betweenArc(angle1) && yIntcpt1 >= startPoint && yIntcpt1 <= endPoint) return true;
+        let angle2 = Math.atan2(yIntcpt2, axisDistance);
+        //if (angle2 >= this.startAngle && angle2 <= this.endAngle && yIntcpt2 >= startPoint && yIntcpt2 <= endPoint) return true;
+        if (this.betweenArc(angle2) && yIntcpt2 >= startPoint && yIntcpt2 <= endPoint) return true;
         return false;
+    }
+
+    // This needs fixed but brain not working so committing and taking a break
+    private betweenArc(angle: number) {
+        return angle >= this.startAngle && angle <= this.endAngle;
     }
 
 }
