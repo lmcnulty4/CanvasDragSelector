@@ -418,6 +418,7 @@ export class Arc implements ICurve {
     private tangent2Y: number;
     private startAngle: number;
     private endAngle: number;
+    private TAU = 2 * Math.PI;
 
     constructor(startPoint: Point, controlPoint: [number, number], endPoint: [number, number], radius: number) {
         this.radius = radius;
@@ -453,6 +454,8 @@ export class Arc implements ICurve {
     private getAngles() {
         this.startAngle = Math.atan2(this.tangent1Y - this.centerY, this.tangent1X - this.centerX);
         this.endAngle = Math.atan2(this.tangent2Y - this.centerY, this.tangent2X - this.centerX);
+        this.startAngle = (this.TAU + this.startAngle) % this.TAU;
+        this.endAngle = (this.TAU + this.endAngle) % this.TAU;
     }
 
     getStartPoint(): Point {
@@ -517,9 +520,13 @@ export class Arc implements ICurve {
         return false;
     }
 
-    // This needs fixed but brain not working so committing and taking a break
     private betweenArc(angle: number) {
-        return angle >= this.startAngle && angle <= this.endAngle;
+        angle = (this.TAU + (angle % this.TAU)) % this.TAU;
+        if (this.startAngle <= this.endAngle) {
+            return this.startAngle <= angle && angle <= this.endAngle;
+        } else {
+            return this.startAngle <= angle || angle <= this.endAngle;
+        }
     }
 
 }
