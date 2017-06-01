@@ -2,7 +2,7 @@ import { IShape } from "./base";
 import { TransformMatrix } from "../ContextCurrentTransformPolyfill";
 import { Rectangle } from "./Rectangle";
 
-type Point = ["M" | "L" | "Z" | "Q" | "C", number, number]; // type, x, y
+type Point = ["M" | "L" | "Z" | "Q" | "C" | "A", number, number]; // type, x, y
 type BezierCurve = ["Q" | "C" | "A", ICurve];
 
 export class Path implements IShape {
@@ -16,48 +16,48 @@ export class Path implements IShape {
         this.subPath = [];
     }
 
-    moveTo(point: [number, number]) {
-        this.subPath.push(["M", point[0], point[1]]);
+    moveTo(x: number, y: number) {
+        this.subPath.push(["M", x, y]);
     }
 
-    lineTo(point: [number, number]) {
+    lineTo(x: number, y: number) {
         this.ensureSubpathExists();
-        this.subPath.push(["L", point[0], point[1]]);
+        this.subPath.push(["L", x, y]);
     }
 
     closePath() {
-        this.subPath.push(["Z", null, null]);
+        if (this.subPath.length > 0) this.subPath.push(["Z", null, null]);
     }
 
-    quadraticCurveTo(controlPoint: [number, number], endPoint: [number, number]) {
+    quadraticCurveTo(cpX: number, cpY: number, endPointX: number, endPointY: number) {
         this.ensureSubpathExists();
         let startPoint = this.getPreviousEndPoint();
-        this.subPath.push(["Q", new QuadraticBezierCurve(startPoint, controlPoint, endPoint)]);
+        this.subPath.push(["Q", new QuadraticBezierCurve(startPoint[0], startPoint[1], cpX, cpY, endPointX, endPointY)]);
     }
 
-    bezierCurveTo(controlPoint1: [number, number], controlPoint2: [number, number], endPoint: [number, number]) {
+    bezierCurveTo(controlPoint1X: number, controlPoint1Y: number, controlPoint2X: number, controlPoint2Y: number, endPointX: number, endPointY: number) {
         this.ensureSubpathExists();
         let startPoint = this.getPreviousEndPoint();
-        this.subPath.push(["C", new CubicBezierCurve(startPoint, controlPoint1, controlPoint2, endPoint)]);
+        this.subPath.push(["C", new CubicBezierCurve(startPoint[0], startPoint[1], controlPoint1X, controlPoint1Y, controlPoint2X, controlPoint2Y, endPointX, endPointY)]);
     }
 
-    arcTo(controlPoint: [number, number], endPoint: [number, number], radius: number) {
+    arcTo(cpX: number, cpY: number, endPointX: number, endPointY: number, radius: number) {
         this.ensureSubpathExists();
         let startPoint = this.getPreviousEndPoint();
-        let arc = new Arc(startPoint, controlPoint, endPoint, radius);
+        let arc = new Arc(startPoint[0], startPoint[1], cpX, cpY, endPointX, endPointY, radius);
         let arcStart = arc.getStartPoint();
         if (!(arcStart[1] === startPoint[1] && arcStart[2] === startPoint[2])) {
-            this.subPath.push(arcStart);
+            this.subPath.push(["L", arcStart[0], arcStart[1]]);
         }
         this.subPath.push(["A", arc]);
     }
 
-    private getPreviousEndPoint(): Point {
+    private getPreviousEndPoint(): [number, number] {
         let prevPath = this.subPath[this.subPath.length - 1];
         if (prevPath instanceof QuadraticBezierCurve || prevPath instanceof CubicBezierCurve || prevPath instanceof Arc) {
             return prevPath.getEndPoint();
         } else {
-            return <Point>prevPath;
+            return [<any>prevPath[1], <any>prevPath[2]];
         }
     }
 
@@ -90,17 +90,20 @@ export class Path implements IShape {
                 if ((<QuadraticBezierCurve>currentSegment[1]).intersects(transformedRect)) {
                     return true;
                 }
-                previousSegment = (<QuadraticBezierCurve>currentSegment[1]).getEndPoint();
+                let endPoint = (<QuadraticBezierCurve>currentSegment[1]).getEndPoint();
+                previousSegment = ["Q", endPoint[0], endPoint[1]];
             } else if (currentSegment[0] === "C") {
                 if ((<CubicBezierCurve>currentSegment[1]).intersects(transformedRect)) {
                     return true;
                 }
-                previousSegment = (<CubicBezierCurve>currentSegment[1]).getEndPoint();
+                let endPoint = (<CubicBezierCurve>currentSegment[1]).getEndPoint();
+                previousSegment = ["C", endPoint[0], endPoint[1]];
             } else if (currentSegment[0] === "A") {
                 if ((<Arc>currentSegment[1]).intersects(transformedRect)) {
                     return true;
                 }
-                previousSegment = (<Arc>currentSegment[1]).getEndPoint();
+                let endPoint = (<Arc>currentSegment[1]).getEndPoint();
+                previousSegment = ["A", endPoint[0], endPoint[1]];
             }
         }
         return false;
@@ -149,7 +152,7 @@ export class Path implements IShape {
 
 interface ICurve {
     intersects(rect: [number, number, number, number]): boolean;
-    getEndPoint(): Point;
+    getEndPoint(): [number, number];
 }
 
 export class QuadraticBezierCurve implements ICurve {
@@ -172,38 +175,38 @@ export class QuadraticBezierCurve implements ICurve {
     private qX: number;
     private qY: number;
 
-    constructor(startPoint: Point, controlPoint: [number, number], endPoint: [number, number]) {
-        this.startX = startPoint[1];
-        this.startY = startPoint[2];
-        this.endX = endPoint[0];
-        this.endY = endPoint[1];
-        this.mbX = 2 * (startPoint[1] - controlPoint[0]);
-        this.mbY = 2 * (startPoint[2] - controlPoint[1]);
-        this.taX = 2 * (startPoint[1] - controlPoint[0] - controlPoint[0] + endPoint[0]);
-        this.taY = 2 * (startPoint[2] - controlPoint[1] - controlPoint[1] + endPoint[1]);
-        this.qX = this.mbX * this.mbX - 2 * (this.taX * startPoint[1]);
-        this.qY = this.mbY * this.mbY - 2 * (this.taY * startPoint[2]);
-        this.calculateAABB(startPoint, controlPoint, endPoint);
+    constructor(startPointX: number, startPointY: number, controlPointX: number, controlPointY: number, endPointX: number, endPointY: number) {
+        this.startX = startPointX;
+        this.startY = startPointY;
+        this.endX = endPointX;
+        this.endY = endPointY;
+        this.mbX = 2 * (startPointX - controlPointX);
+        this.mbY = 2 * (startPointY - controlPointY);
+        this.taX = 2 * (startPointX - controlPointX - controlPointX + endPointX);
+        this.taY = 2 * (startPointY - controlPointY - controlPointY + endPointY);
+        this.qX = this.mbX * this.mbX - 2 * (this.taX * startPointX);
+        this.qY = this.mbY * this.mbY - 2 * (this.taY * startPointY);
+        this.calculateAABB(startPointX, startPointY, controlPointX, controlPointY, endPointX, endPointY);
     }
 
-    getEndPoint() : ["M", number, number] {
-        return ["M", this.endX, this.endY];
+    getEndPoint() : [number, number] {
+        return [this.endX, this.endY];
     }
 
-    private calculateAABB(startPoint: Point, controlPoint: [number, number], endPoint: [number, number]) {
+    private calculateAABB(startPointX: number, startPointY: number, controlPointX: number, controlPointY: number, endPointX: number, endPointY: number) {
         // t value for derivative
         let tX = this.mbX / this.taX;
         let tY = this.mbY / this.taY;
         // Set bounds
-        this.xMin = endPoint[0] < startPoint[1] ? endPoint[0] : startPoint[1], this.xMax = endPoint[0] > startPoint[1] ? endPoint[0] : startPoint[1];
-        this.yMin = endPoint[1] < startPoint[2] ? endPoint[1] : startPoint[2], this.yMax = endPoint[1] > startPoint[2] ? endPoint[1] : startPoint[2];
+        this.xMin = endPointX < startPointX ? endPointX : startPointX, this.xMax = endPointX > startPointX ? endPointX : startPointX;
+        this.yMin = endPointY < startPointY ? endPointY : startPointY, this.yMax = endPointY > startPointY ? endPointY : startPointY;
         if (tX > 0 && tX < 1) {
-            let xt = this.evaluateBezier(startPoint[1], controlPoint[0], endPoint[0], tX);
+            let xt = this.evaluateBezier(startPointX, controlPointX, endPointX, tX);
             if (xt < this.xMin) this.xMin = xt;
             if (xt > this.xMax) this.xMax = xt;
         }
         if (tY > 0 && tY < 1) {
-            let xt = this.evaluateBezier(startPoint[2], controlPoint[1], endPoint[1], tY);
+            let xt = this.evaluateBezier(startPointY, controlPointY, endPointY, tY);
             if (xt < this.yMin) this.yMin = xt;
             if (xt > this.yMax) this.yMax = xt;
         }
@@ -279,26 +282,26 @@ export class CubicBezierCurve implements ICurve {
     private rX: number;
     private rY: number;
 
-    constructor(startPoint: Point, controlPoint1: [number, number], controlPoint2: [number, number], endPoint: [number, number]) {
-        this.p0x = (-startPoint[1] + 3*controlPoint1[0] + -3*controlPoint2[0] + endPoint[0]);
-        this.p0y = (-startPoint[2] + 3*controlPoint1[1] + -3*controlPoint2[1] + endPoint[1]);
-        this.p1x = (3*startPoint[1] - 6*controlPoint1[0] + 3*controlPoint2[0]);
-        this.p1y = (3*startPoint[2] - 6*controlPoint1[1] + 3*controlPoint2[1]);
-        this.p2x = (-3*startPoint[1] + 3*controlPoint1[0]);
-        this.p2y = (-3*startPoint[2] + 3*controlPoint1[1]);
-        this.startX = startPoint[1];
-        this.startY = startPoint[2];
-        this.endX = endPoint[0];
-        this.endY = endPoint[1];
+    constructor(startPointX: number, startPointY: number, controlPoint1X: number, controlPoint1Y: number, controlPoint2X: number, controlPoint2Y: number, endPointX: number, endPointY: number) {
+        this.p0x = (-startPointX + 3*controlPoint1X + -3*controlPoint2X + endPointX);
+        this.p0y = (-startPointY + 3*controlPoint1Y + -3*controlPoint2Y + endPointY);
+        this.p1x = (3*startPointX - 6*controlPoint1X + 3*controlPoint2X);
+        this.p1y = (3*startPointY - 6*controlPoint1Y + 3*controlPoint2Y);
+        this.p2x = (-3*startPointX + 3*controlPoint1X);
+        this.p2y = (-3*startPointY + 3*controlPoint1Y);
+        this.startX = startPointX;
+        this.startY = startPointY;
+        this.endX = endPointX;
+        this.endY = endPointY;
         this.qX = (3 * this.p0x * this.p2x - this.p1x * this.p1x) / (9 * this.p0x * this.p0x);
         this.qY = (3 * this.p0y * this.p2y - this.p1y * this.p1y) / (9 * this.p0y * this.p0y);
         this.rX = (9 * this.p0x * this.p1x * this.p2x - 27 * this.p0x * this.p0x * this.startX - 2 * this.p1x * this.p1x * this.p1x) / (54 * this.p0x * this.p0x * this.p0x);
         this.rY = (9 * this.p0y * this.p1y * this.p2y - 27 * this.p0y * this.p0y * this.startY - 2 * this.p1y * this.p1y * this.p1y) / (54 * this.p0y * this.p0y * this.p0y);
-        this.calculateAABB(startPoint, controlPoint1, controlPoint2, endPoint);
+        this.calculateAABB(startPointX, startPointY, controlPoint1X, controlPoint1Y, controlPoint2X, controlPoint2Y, endPointX, endPointY);
     }
 
-    getEndPoint() : ["M", number, number] {
-        return ["M", this.endX, this.endY];
+    getEndPoint(): [number, number] {
+        return [this.endX, this.endY];
     }
 
     // Note: In 1 dimension only
@@ -308,25 +311,25 @@ export class CubicBezierCurve implements ICurve {
 
     // https://pomax.github.io/bezierinfo/#boundingbox
     // https://pomax.github.io/bezierinfo/#extremities
-    private calculateAABB(startPoint: Point, controlPoint1: [number, number], controlPoint2: [number, number], endPoint: [number, number]) {
+    private calculateAABB(startPointX: number, startPointY: number, controlPoint1X: number, controlPoint1Y: number, controlPoint2X: number, controlPoint2Y: number, endPointX: number, endPointY: number) {
         // Derivative and get roots
         let aX = 3 * this.p0x, aY = 3 * this.p0y;
         let bX = 2 * this.p1x, bY = 2 * this.p1y;
         let cX = this.p2x, cY = this.p2y;
         // initialise mins and maxes
-        this.xMin = endPoint[0] < startPoint[1] ? endPoint[0] : startPoint[1], this.xMax = endPoint[0] > startPoint[1] ? endPoint[0] : startPoint[1];
-        this.yMin = endPoint[1] < startPoint[2] ? endPoint[1] : startPoint[2], this.yMax = endPoint[1] > startPoint[2] ? endPoint[1] : startPoint[2];
+        this.xMin = endPointX < startPointX ? endPointX : startPointX, this.xMax = endPointX > startPointX ? endPointX : startPointX;
+        this.yMin = endPointY < startPointY ? endPointY : startPointY, this.yMax = endPointY > startPointY ? endPointY : startPointY;
         // roots where (-b +- sqrt(b*b - 4*a*c)) / 2*a = 0
         let discX = bX * bX - 4 * aX * cX, discY = bY * bY - 4 * aY * cY;
         if (discX >= 0) {
             let t1 = (-bX + Math.sqrt(discX)) / (2*aX), t2 = (-bX - Math.sqrt(discX)) / (2*aX); // from 
             if (t1 > 0 && t1 < 1) {
-                let xt = this.evaluateBezier(startPoint[1], controlPoint1[0], controlPoint2[0], endPoint[0], t1);
+                let xt = this.evaluateBezier(startPointX, controlPoint1X, controlPoint2X, endPointX, t1);
                 if (xt < this.xMin) this.xMin = xt;
                 if (xt > this.xMax) this.xMax = xt;
             }
             if (t2 > 0 && t2 < 1) {
-                let xt = this.evaluateBezier(startPoint[1], controlPoint1[0], controlPoint2[0], endPoint[0], t2);
+                let xt = this.evaluateBezier(startPointX, controlPoint1X, controlPoint2X, endPointX, t2);
                 if (xt < this.xMin) this.xMin = xt;
                 if (xt > this.xMax) this.xMax = xt;
             }
@@ -334,12 +337,12 @@ export class CubicBezierCurve implements ICurve {
         if (discY >= 0) {
             let t1 = (-bY + Math.sqrt(discY)) / (2*aY), t2 = (-bY - Math.sqrt(discY)) / (2*aY);
             if (t1 > 0 && t1 < 1) {
-                let xt = this.evaluateBezier(startPoint[2], controlPoint1[1], controlPoint2[1], endPoint[1], t1);
+                let xt = this.evaluateBezier(startPointY, controlPoint1Y, controlPoint2Y, endPointY, t1);
                 if (xt < this.yMin) this.yMin = xt;
                 if (xt > this.yMax) this.yMax = xt;
             }
             if (t2 > 0 && t2 < 1) {
-                let xt = this.evaluateBezier(startPoint[2], controlPoint1[1], controlPoint2[1], endPoint[1], t2);
+                let xt = this.evaluateBezier(startPointY, controlPoint1Y, controlPoint2Y, endPointY, t2);
                 if (xt < this.yMin) this.yMin = xt;
                 if (xt > this.yMax) this.yMax = xt;
             }
@@ -420,22 +423,22 @@ export class Arc implements ICurve {
     private endAngle: number;
     private TAU = 2 * Math.PI;
 
-    constructor(startPoint: Point, controlPoint: [number, number], endPoint: [number, number], radius: number) {
+    constructor(startPointX: number, startPointY: number, cpX: number, cpY: number, endPointX: number, endPointY: number, radius: number) {
         this.radius = radius;
-        this.controlX = controlPoint[0];
-        this.controlY = controlPoint[1];
-        this.endX = endPoint[0];
-        this.endY = endPoint[1];
-        this.getTangentPoints(startPoint);
-        this.getCenter(startPoint);
+        this.controlX = cpX;
+        this.controlY = cpY;
+        this.endX = endPointX;
+        this.endY = endPointY;
+        this.getTangentPoints(startPointX, startPointY);
+        this.getCenter(startPointX, startPointY);
         this.getAngles();
     }
 
-    private getTangentPoints(startPoint: Point) {
-        let magTan1 = Math.sqrt((this.controlX - startPoint[1]) * (this.controlX - startPoint[1]) + (this.controlY - startPoint[2]) * (this.controlY - startPoint[2]));
+    private getTangentPoints(startPointX: number, startPointY: number) {
+        let magTan1 = Math.sqrt((this.controlX - startPointX) * (this.controlX - startPointX) + (this.controlY - startPointY) * (this.controlY - startPointY));
         let magTan2 = Math.sqrt((this.endX - this.controlX) * (this.endX - this.controlX) + (this.endY - this.controlY) * (this.endY - this.controlY));
-        let beforeX = (this.controlX - startPoint[1]) / magTan1
-        let beforeY = (this.controlY - startPoint[2]) / magTan1;
+        let beforeX = (this.controlX - startPointX) / magTan1
+        let beforeY = (this.controlY - startPointY) / magTan1;
         let afterX = (this.endX - this.controlX) / magTan2;
         let afterY = (this.endY - this.controlY) / magTan2;
         let dist =  Math.abs(this.radius * (1 - (beforeX * afterX + beforeY * afterY)) / (beforeX * afterY - beforeY * afterX));
@@ -445,8 +448,8 @@ export class Arc implements ICurve {
         this.tangent2Y = this.controlY + dist * afterY;
     }
 
-    private getCenter(startPoint: Point) {
-        let mInv = - (this.controlX - startPoint[1]) / (this.controlY - startPoint[2]);
+    private getCenter(startPointX: number, startPointY: number) {
+        let mInv = - (this.controlX - startPointX) / (this.controlY - startPointY);
         this.centerX = this.tangent1X + Math.sqrt(this.radius*this.radius/(1+mInv*mInv));
         this.centerY = this.tangent1Y + (this.centerX - this.tangent1X) * mInv;
     }
@@ -458,12 +461,12 @@ export class Arc implements ICurve {
         this.endAngle = (this.TAU + this.endAngle) % this.TAU;
     }
 
-    getStartPoint(): Point {
-        return ["L", this.tangent1X, this.tangent1Y];
+    getStartPoint(): [number, number] {
+        return [this.tangent1X, this.tangent1Y];
     }
 
-    getEndPoint(): Point {
-        return ["M", this.tangent2X, this.tangent2Y];
+    getEndPoint(): [number, number] {
+        return [this.tangent2X, this.tangent2Y];
     }
 
     intersects(rect: [number,number,number,number]) {
