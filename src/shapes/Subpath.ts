@@ -8,7 +8,7 @@ import { Arc } from "./Arc";
 type Point = ["M" | "L" | "Z" | "Q" | "C" | "A", number, number];
 type BezierCurve = ["Q" | "C" | "A", CubicBezierCurve | QuadraticBezierCurve | Arc];
 
-export class Path implements IShape {
+export class Subpath implements IShape {
 
     readonly boundingBox: [number, number, number, number];
     private xform: TransformMatrix;
