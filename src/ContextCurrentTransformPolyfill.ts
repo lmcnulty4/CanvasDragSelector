@@ -27,6 +27,12 @@ export default function() {
         });
     }
     else {
+        Object.defineProperty(CanvasRenderingContext2D.prototype, "currentTransform", {
+            get: function() { return this._xformStack && this._xformStack.length ? this._xformStack[this._xformStack.length - 1] : getDefaultTransform(); },
+            set : function(xform: TransformMatrix) { if (!this._xformStack) { this._xformStack = []; } this._xformStack.push(xform); },
+            enumerable : true,
+            configurable : false
+        });
         addTransformPolyfill();
         addTranslatePolyfill();
         addRotatePolyfill();
