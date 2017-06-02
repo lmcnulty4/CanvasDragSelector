@@ -1,22 +1,36 @@
-import { IShape } from "./base";
 import { TransformMatrix } from "../ContextCurrentTransformPolyfill";
 import { Rectangle } from "./Rectangle";
 import { CubicBezierCurve } from "./CubicBezier";
 import { QuadraticBezierCurve } from "./QuadraticBezier";
 import { Arc } from "./Arc";
+import { ICanvasContext } from "../TrackingContext";
 
 type Point = ["M" | "L" | "Z" | "Q" | "C" | "A", number, number];
-type BezierCurve = ["Q" | "C" | "A", CubicBezierCurve | QuadraticBezierCurve | Arc];
+type Curve = ["Q" | "C" | "A", CubicBezierCurve | QuadraticBezierCurve | Arc];
 
-export class Subpath implements IShape {
+export class Subpath {
 
     readonly boundingBox: [number, number, number, number];
     private xform: TransformMatrix;
-    private subPath: (Point | BezierCurve)[];
+    private subPath: (Point | Curve)[];
 
     constructor(context: CanvasRenderingContext2D) {
         this.xform = (<any>context).currentTransform;
         this.subPath = [];
+    }
+
+    render(context: ICanvasContext) {
+        for (let i = 0, l = this.subPath.length; i < l; i++) {
+            let seg = this.subPath[i];
+            switch (seg[0]) {
+                case "M": context.moveTo((<Point>seg)[1], (<Point>seg)[2]); break;
+                case "L": context.lineTo((<Point>seg)[1], (<Point>seg)[2]); break;
+                case "Z": context.closePath(); break;
+                case "Q": (<Curve>seg)[1].render(context); break;
+                case "C": (<Curve>seg)[1].render(context); break;
+                case "A": (<Curve>seg)[1].render(context); break;
+            }
+        }
     }
 
     moveTo(x: number, y: number) {
