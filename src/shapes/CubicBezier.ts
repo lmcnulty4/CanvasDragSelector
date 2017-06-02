@@ -1,5 +1,6 @@
 import { IShape } from "./Base";
 import { Rectangle } from "./Rectangle";
+import { ICanvasContext } from "../TrackingContext";
 
 export class CubicBezierCurve implements IShape {
 
@@ -26,6 +27,11 @@ export class CubicBezierCurve implements IShape {
     private qY: number;
     private rX: number;
     private rY: number;
+    // For re-rendering
+    private controlPoint1X: number;
+    private controlPoint1Y: number;
+    private controlPoint2X: number;
+    private controlPoint2Y: number;
 
     constructor(startPointX: number, startPointY: number, controlPoint1X: number, controlPoint1Y: number, controlPoint2X: number, controlPoint2Y: number, endPointX: number, endPointY: number) {
         this.p0x = (-startPointX + 3*controlPoint1X + -3*controlPoint2X + endPointX);
@@ -43,6 +49,10 @@ export class CubicBezierCurve implements IShape {
         this.rX = (9 * this.p0x * this.p1x * this.p2x - 27 * this.p0x * this.p0x * this.startX - 2 * this.p1x * this.p1x * this.p1x) / (54 * this.p0x * this.p0x * this.p0x);
         this.rY = (9 * this.p0y * this.p1y * this.p2y - 27 * this.p0y * this.p0y * this.startY - 2 * this.p1y * this.p1y * this.p1y) / (54 * this.p0y * this.p0y * this.p0y);
         this.calculateAABB(startPointX, startPointY, controlPoint1X, controlPoint1Y, controlPoint2X, controlPoint2Y, endPointX, endPointY);
+    }
+
+    render(context: ICanvasContext) {
+        context.bezierCurveTo(this.controlPoint1X, this.controlPoint1Y, this.controlPoint2X, this.controlPoint2Y, this.endX, this.endY);
     }
 
     getEndPoint() : [number, number] {

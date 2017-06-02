@@ -1,5 +1,6 @@
 import { IShape } from "./Base";
 import { Rectangle } from "./Rectangle";
+import { ICanvasContext } from "../TrackingContext";
 
 export class QuadraticBezierCurve implements IShape {
 
@@ -20,6 +21,9 @@ export class QuadraticBezierCurve implements IShape {
     private taY: number;
     private qX: number;
     private qY: number;
+    // For re-rendering
+    private controlPointX: number;
+    private controlPointY: number;
 
     constructor(startPointX: number, startPointY: number, controlPointX: number, controlPointY: number, endPointX: number, endPointY: number) {
         this.startX = startPointX;
@@ -33,6 +37,10 @@ export class QuadraticBezierCurve implements IShape {
         this.qX = this.mbX * this.mbX - 2 * (this.taX * startPointX);
         this.qY = this.mbY * this.mbY - 2 * (this.taY * startPointY);
         this.calculateAABB(startPointX, startPointY, controlPointX, controlPointY, endPointX, endPointY);
+    }
+
+    render(context: ICanvasContext) {
+        context.quadraticCurveTo(this.controlPointX, this.controlPointY, this.endX, this.endY);
     }
 
     getEndPoint() : [number, number] {

@@ -1,5 +1,6 @@
 import { IShape } from "./Base";
 import { Rectangle } from "./Rectangle";
+import { ICanvasContext } from "../TrackingContext";
 
 export class Arc implements IShape {
 
@@ -27,6 +28,10 @@ export class Arc implements IShape {
         this.getTangentPoints(startPointX, startPointY);
         this.getCenter(startPointX, startPointY);
         this.getAngles();
+    }
+    
+    render(context: ICanvasContext) {
+        context.arcTo(this.controlX, this.controlY, this.endX, this.endY, this.radius);
     }
 
     private getTangentPoints(startPointX: number, startPointY: number) {

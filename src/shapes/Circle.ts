@@ -1,6 +1,7 @@
 import { IShape } from "./Base";
 import { Rectangle } from "./Rectangle";
 import { TransformMatrix } from "../ContextCurrentTransformPolyfill"
+import { ICanvasContext } from "../TrackingContext";
 
 export class Circle implements IShape {
 
@@ -21,6 +22,10 @@ export class Circle implements IShape {
             radius * 2
         ];
         this.xform = (<any>context).currentTransform;
+    }
+
+    render(context: ICanvasContext) {
+        context.arc(this.centre[0], this.centre[1], this.radius, 0, 2*Math.PI, true);
     }
 
     intersects(rect: [number, number, number, number]) {

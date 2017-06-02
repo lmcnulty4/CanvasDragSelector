@@ -1,5 +1,6 @@
 import { IShape } from "./base";
 import { TransformMatrix } from "../ContextCurrentTransformPolyfill"
+import { ICanvasContext } from "../TrackingContext";
 
 export class Rectangle implements IShape {
 
@@ -9,6 +10,10 @@ export class Rectangle implements IShape {
     constructor(context: CanvasRenderingContext2D, dimens: [number, number, number, number]) {
         this.dimensions = [dimens[0], dimens[1], dimens[2], dimens[3]];
         this.xform = (<any>context).currentTransform;
+    }
+
+    render(context: ICanvasContext) {
+        context.rect(this.dimensions[0], this.dimensions[1], this.dimensions[2] ,this.dimensions[3]);
     }
 
     intersects(dimens: [number, number, number, number]) {
