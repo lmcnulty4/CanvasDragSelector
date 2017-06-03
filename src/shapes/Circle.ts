@@ -28,6 +28,10 @@ export class Circle implements IShape {
         context.arc(this.centre[0], this.centre[1], this.radius, 0, 2*Math.PI, true);
     }
 
+    containsPoint(point: [number, number]) {
+        return Math.sqrt((point[0] - this.centre[0]) * (point[0] - this.centre[0]) + (point[1] - this.centre[1]) * (point[1] - this.centre[1])) <= this.radius;
+    }
+
     intersects(rect: [number, number, number, number]) {
         let transformedRect = Rectangle.matrixTransformRect(rect, this.xform);
         if (!Rectangle.rectanglesIntersect(this.boundingBox, transformedRect)) return false;

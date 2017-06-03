@@ -20,6 +20,11 @@ export class Rectangle implements IShape {
         return Rectangle.rectanglesIntersect(this.dimensions, Rectangle.matrixTransformRect(dimens, this.xform));
     }
 
+    containsPoint(point: [number, number]) {
+        return point[0] >= this.dimensions[0] && point[0] <= (this.dimensions[0] + this.dimensions[2]) 
+            && point[1] >= this.dimensions[1] && point[1] <= (this.dimensions[1] + this.dimensions[3]);
+    }
+
     // Do not care about rotations or skews, only scale and translate
     // That way can enforce that all rectangles are axis aligned - much easier/faster hit detection
     static matrixTransformRect(rect: [number, number, number, number], matrix: TransformMatrix) : [number, number, number, number] {
