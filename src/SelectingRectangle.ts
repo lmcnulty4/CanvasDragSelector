@@ -11,7 +11,7 @@ export class Rect {
     private heightIncreasing: boolean;
 
     constructor(canvas: HTMLCanvasElement, anchorPoint: [number, number], rectStyler?: (ctx:CanvasRenderingContext2D) => void) {
-        this.anchor = [anchorPoint[0], anchorPoint[1]];
+        this.anchor = anchorPoint;
         this.dimensions = [anchorPoint[0], anchorPoint[1], 0, 0];
         this.rootCavnas = canvas;
         this.createCanvas();
@@ -79,8 +79,12 @@ export class Rect {
         this.rectContext.beginPath(); // this is needed because of using stroke() - for border
     }
 
-    getDimensions() {
+    getDimensions(): [number, number, number, number] {
         return [this.dimensions[0], this.dimensions[1], this.dimensions[2], this.dimensions[3]];
+    }
+
+    getAnchorPoint(): [number, number] {
+        return this.anchor;
     }
 
     redraw(mousePosition: [number, number]) {
