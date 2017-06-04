@@ -180,10 +180,10 @@ export class Arc implements IShape {
 
     private betweenArc(angle: number) {
         angle = (TAU + (angle % TAU)) % TAU;
-        if (this.startAngle <= this.endAngle) {
+        if (this.clockwise) {
             return this.startAngle <= angle && angle <= this.endAngle;
         } else {
-            return this.startAngle >= angle && angle >= this.endAngle;
+            return this.startAngle >= angle || angle >= this.endAngle;
         }
     }
 
