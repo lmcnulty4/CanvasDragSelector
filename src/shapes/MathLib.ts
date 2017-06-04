@@ -22,3 +22,5 @@ export function getUnitQuadRoots(a: number, b: number, c: number, roots: [number
 }
 
 export const TAU = 2 * Math.PI;
+export const HALF_PI = Math.PI / 2;
+export const THREE_HALF_PI = 3 * Math.PI / 2;
