@@ -1,7 +1,7 @@
 import { IShape } from "./Base";
 import { Rectangle } from "./Rectangle";
 import { ICanvasContext } from "../TrackingContext";
-import { getUnitQuadRoots, TAU, HALF_PI, THREE_HALF_PI } from "./MathLib";
+import { getUnitQuadRoots, TAU, HALF_PI, THREE_HALF_PI, EPSILON } from "./MathLib";
 
 export class Arc implements IShape {
 
@@ -115,7 +115,7 @@ export class Arc implements IShape {
         this.centerY = tY + os * mInv;
         let d1 = Math.abs(Math.sqrt((this.tangent1X - this.centerX)*(this.tangent1X - this.centerX) + (this.tangent1Y - this.centerY)*(this.tangent1Y - this.centerY)) - this.radius);
         let d2 = Math.abs(Math.sqrt((this.tangent2X - this.centerX)*(this.tangent2X - this.centerX) + (this.tangent2Y - this.centerY)*(this.tangent2Y - this.centerY)) - this.radius);
-        if (d1 > 1e-06 || d2 > 1e-06) {
+        if (d1 > EPSILON || d2 > EPSILON) {
             this.centerX = tX - os;
             this.centerY = tY - os * mInv;
         }
