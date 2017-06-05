@@ -33,7 +33,11 @@ export class Arc implements IShape {
         this.endX = endPointX;
         this.endY = endPointY;
         this.getTangentPoints(startPointX, startPointY);
-        this.getCenter(startPointX, startPointY);
+        if (this.controlY != startPointY) { // if one is horizontal the other isn't
+            this.getCenter(-(this.controlX - startPointX) / (this.controlY - startPointY), this.tangent1X, this.tangent1Y);
+        } else {
+            this.getCenter(-(this.controlX - endPointX) / (this.controlY - endPointY), this.tangent2X, this.tangent2Y);
+        }
         this.getAngles();
         this.calculateAABB();
     }
@@ -49,29 +53,32 @@ export class Arc implements IShape {
     private calculateAABB() {
         this.presetAABB();
         if (this.clockwise) {
-            if (!(this.startAngle <= Math.PI && this.endAngle >= Math.PI)) { // left
-                this.xMin = Math.min(this.tangent1X, this.tangent2X);
-            } 
-            if (!(this.startAngle <= THREE_HALF_PI && this.endAngle >= THREE_HALF_PI)) { // top
-                this.yMin = Math.min(this.tangent1Y, this.tangent2Y);
-            } 
-            if (!(this.startAngle >= THREE_HALF_PI && this.endAngle >= HALF_PI)) { // right
+            if (!(this.startAngle >= Math.PI && this.endAngle < Math.PI)) {
                 this.xMax = Math.max(this.tangent1X, this.tangent2X);
-            } 
-            if (!(this.startAngle <= HALF_PI && this.endAngle >= HALF_PI)) { // bottom
-                this.yMax = Math.max(this.tangent1Y, this.tangent2Y);
+            }
+            if (!((this.startAngle <= THREE_HALF_PI && this.endAngle >= THREE_HALF_PI) 
+                || (this.startAngle >= THREE_HALF_PI && this.endAngle < this.startAngle && this.endAngle > THREE_HALF_PI))) { 
+                this.yMin = Math.min(this.tangent1Y, this.tangent2Y); 
+            }
+            if (!(this.startAngle <= Math.PI && this.endAngle > Math.PI)) {
+                this.xMin = Math.min(this.tangent1X, this.tangent2X);
+            }
+            if (!((this.startAngle <= HALF_PI && this.endAngle > HALF_PI) 
+                || (this.startAngle >= HALF_PI && this.endAngle < this.startAngle && this.endAngle > HALF_PI))) { 
+                this.yMax = Math.max(this.tangent1Y, this.tangent2Y); 
             }
         } else {
-            if (!(this.startAngle >= Math.PI && this.endAngle <= Math.PI)) { // left
-                this.xMin = Math.min(this.tangent1X, this.tangent2X);
-            } 
-            if (!(this.startAngle >= THREE_HALF_PI && this.endAngle <= THREE_HALF_PI)) { // top
-                this.yMin = Math.min(this.tangent1Y, this.tangent2Y);
-            } 
-            if (!(this.startAngle <= HALF_PI && this.endAngle >= THREE_HALF_PI)) { // right
+            if (!(this.startAngle <= Math.PI && this.endAngle > Math.PI)) {
                 this.xMax = Math.max(this.tangent1X, this.tangent2X);
-            } 
-            if (!(this.startAngle <= HALF_PI && this.endAngle >= HALF_PI)) { // bottom
+            }
+            if (!((this.startAngle >= THREE_HALF_PI && this.endAngle < THREE_HALF_PI) 
+                || (this.startAngle <= THREE_HALF_PI && this.endAngle > this.startAngle && this.endAngle < THREE_HALF_PI))) {
+                this.yMin = Math.min(this.tangent1Y, this.tangent2Y);
+            }
+            if (!(this.startAngle >= Math.PI && this.endAngle < Math.PI)) {
+                this.xMin = Math.min(this.tangent1X, this.tangent2X);
+            }
+            if (!((this.startAngle >= HALF_PI && this.endAngle < HALF_PI) || (this.startAngle <= HALF_PI && this.endAngle > this.startAngle && this.endAngle < HALF_PI))) {
                 this.yMax = Math.max(this.tangent1Y, this.tangent2Y);
             }
         }
@@ -101,17 +108,16 @@ export class Arc implements IShape {
         this.weight = Math.sqrt(0.5 + 0.5*(beforeX * afterX + beforeY * afterY));
     }
 
-    private getCenter(startPointX: number, startPointY: number) {
-        let mInv = - (this.controlX - startPointX) / (this.controlY - startPointY);
-        // CANNOT figure out how to determine whether to + or - this (clockwise doesn't always work) so test with + if dists = rad and if not then -
+    private getCenter(mInv: number, tX: number, tY: number) {
+        // CANNOT figure out how to determine whether to + or - this value (clockwise doesn't always work) so test with + if dists = rad and if not then -
         let os = Math.sqrt(this.radius*this.radius/(1+mInv*mInv));
-        this.centerX = this.tangent1X + os;
-        this.centerY = this.tangent1Y + (this.centerX - this.tangent1X) * mInv;
-        let d1 = Math.sqrt((this.tangent1X - this.centerX)*(this.tangent1X - this.centerX) + (this.tangent1Y - this.centerY)*(this.tangent1Y - this.centerY));
-        let d2 = Math.sqrt((this.tangent2X - this.centerX)*(this.tangent2X - this.centerX) + (this.tangent2Y - this.centerY)*(this.tangent2Y - this.centerY));
-        if (d1 !== this.radius || d2 !== this.radius) {
-            this.centerX = this.tangent1X - os;
-            this.centerY = this.tangent1Y + (this.centerX - this.tangent1X) * mInv;
+        this.centerX = tX + os;
+        this.centerY = tY + os * mInv;
+        let d1 = Math.abs(Math.sqrt((this.tangent1X - this.centerX)*(this.tangent1X - this.centerX) + (this.tangent1Y - this.centerY)*(this.tangent1Y - this.centerY)) - this.radius);
+        let d2 = Math.abs(Math.sqrt((this.tangent2X - this.centerX)*(this.tangent2X - this.centerX) + (this.tangent2Y - this.centerY)*(this.tangent2Y - this.centerY)) - this.radius);
+        if (d1 > 1e-06 || d2 > 1e-06) {
+            this.centerX = tX - os;
+            this.centerY = tY - os * mInv;
         }
     }
 
@@ -142,48 +148,41 @@ export class Arc implements IShape {
         rect[0] -= this.centerX;
         rect[1] -= this.centerY;
         // bottom line
-        if (this.intersectsHorizontalSegment(rect[0], rect[0] + rect[2], rect[1] + rect[3])) return true;
+        if (this.intersectsSegment(rect[0], rect[0] + rect[2], rect[1] + rect[3], true)) return true;
         // right line
-        if (this.intersectsVerticalSegment(rect[1], rect[1] + rect[3], rect[0] + rect[2])) return true;
+        if (this.intersectsSegment(rect[1], rect[1] + rect[3], rect[0] + rect[2], false)) return true;
         // top line
-        if (this.intersectsHorizontalSegment(rect[0], rect[0] + rect[2], rect[1])) return true;
+        if (this.intersectsSegment(rect[0], rect[0] + rect[2], rect[1], true)) return true;
         // left line
-        if (this.intersectsVerticalSegment(rect[1], rect[1] + rect[3], rect[0])) return true;
+        if (this.intersectsSegment(rect[1], rect[1] + rect[3], rect[0], false)) return true;
         return false;
     }
 
-    private intersectsHorizontalSegment(startPoint: number, endPoint: number, axisDistance: number) {
+    private intersectsSegment(startPoint: number, endPoint: number, axisDistance: number, horizontal: boolean) {
         // x^2 + y^2 = r^2
         // y = mx + c with m = 0 => y = c = axisDistance
         // x^2 + axisDistance^2 = r^2, x = sqrt(r^2 - axisDistance^2)
         if (this.radius < Math.abs(axisDistance)) return false;
-        let xIntcpt1 = Math.sqrt(this.radius * this.radius - axisDistance * axisDistance), xIntcpt2 = -xIntcpt1;
-        let angle1 = Math.atan2(axisDistance, xIntcpt1);
-        if (this.betweenArc(angle1) && xIntcpt1 >= startPoint && xIntcpt1 <= endPoint) return true;
-        let angle2 = Math.atan2(axisDistance, xIntcpt2);
-        if (this.betweenArc(angle2) && xIntcpt2 >= startPoint && xIntcpt2 <= endPoint) return true;
-        return false;
-    }
-
-    private intersectsVerticalSegment(startPoint: number, endPoint: number, axisDistance: number) {
-        // x^2 + y^2 = r^2
-        // y = mx + c with m = undefined... x = (y - c) / undefined
-        // y^2 + axisDistance^2 = r^2, y = sqrt(r^2 - axisDistance^2)
-        if (this.radius < Math.abs(axisDistance)) return false;
-        let yIntcpt1 = Math.sqrt(this.radius * this.radius - axisDistance * axisDistance), yIntcpt2 = -yIntcpt1;
-        let angle1 = Math.atan2(yIntcpt1, axisDistance);
-        if (this.betweenArc(angle1) && yIntcpt1 >= startPoint && yIntcpt1 <= endPoint) return true;
-        let angle2 = Math.atan2(yIntcpt2, axisDistance);
-        if (this.betweenArc(angle2) && yIntcpt2 >= startPoint && yIntcpt2 <= endPoint) return true;
+        let intcpt = Math.sqrt(this.radius * this.radius - axisDistance * axisDistance);
+        if (this.betweenArc(horizontal ? Math.atan2(axisDistance, intcpt) : Math.atan2(intcpt, axisDistance)) && intcpt >= startPoint && intcpt <= endPoint) return true;
+        if (this.betweenArc(horizontal ? Math.atan2(axisDistance, -intcpt) : Math.atan2(-intcpt, axisDistance)) && -intcpt >= startPoint && -intcpt <= endPoint) return true;
         return false;
     }
 
     private betweenArc(angle: number) {
         angle = (TAU + (angle % TAU)) % TAU;
-        if (this.clockwise) {
-            return this.startAngle <= angle && angle <= this.endAngle;
+        if(this.startAngle <= this.endAngle) {
+            if(this.endAngle - this.startAngle <= Math.PI) {
+                return this.startAngle <= angle && angle <= this.endAngle;
+            } else {
+                return this.endAngle <= angle || angle <= this.startAngle;
+            }
         } else {
-            return this.startAngle >= angle || angle >= this.endAngle;
+            if(this.startAngle - this.endAngle <= Math.PI) {
+                return this.endAngle <= angle && angle <= this.startAngle;
+            } else {
+                return this.startAngle <= angle || angle <= this.endAngle;
+            }
         }
     }
 
