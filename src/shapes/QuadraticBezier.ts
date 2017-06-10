@@ -12,8 +12,6 @@ export class QuadraticBezierCurve implements IShape {
     private endY: number;
     // AABB:
     private bounds: number[] = [];
-    // t values for AABB
-    private tBounds: number[] = [];
     // Intersection coefficients:
     private mbX: number;
     private mbY: number;
@@ -56,19 +54,19 @@ export class QuadraticBezierCurve implements IShape {
 
     private calculate1dAABB(start: number, cp: number, end: number, tVal: number, incr: number) {
         if (end < start) {
-            this.bounds[incr] = end; this.tBounds[incr] = 1;
-            this.bounds[incr+2] = start; this.tBounds[incr+2] = 0;
+            this.bounds[incr] = end;
+            this.bounds[incr+2] = start;
         } else {
-            this.bounds[incr] = start; this.tBounds[incr] = 0;
-            this.bounds[incr+2] = end; this.tBounds[incr+2] = 1;
+            this.bounds[incr] = start;
+            this.bounds[incr+2] = end;
         }
         if (tVal > 0 && tVal < 1) {
             let val = this.evaluateBezier(start, cp, end, tVal);
-            if (val < this.bounds[incr]) { this.bounds[incr] = val; this.tBounds[incr] = tVal; }
-            if (val > this.bounds[incr+2]) { this.bounds[incr+2] = val; this.tBounds[incr+2] = tVal; }
+            if (val < this.bounds[incr]) { this.bounds[incr] = val; }
+            if (val > this.bounds[incr+2]) { this.bounds[incr+2] = val; }
         }
     }
-    
+
     // Note: In 1 dimension only
     private evaluateBezier(startPoint:number, controlPoint: number, endPoint: number, t: number) {
         return (1 - t) * (1 - t) * startPoint + 2 * (1 - t) * t * controlPoint + t * t * endPoint;
@@ -76,7 +74,7 @@ export class QuadraticBezierCurve implements IShape {
 
     private generateSubcurves() {
         if (!this.isMonotoneY()) {
-            let t = (this.bounds[1] === this.startY || this.bounds[1] === this.endY)  ? this.tBounds[3] : this.tBounds[1];
+            let t = this.mbY / this.taY; // Can do this because if it's not monotone then it has at one turning point which must have this value for t
             let midPointX = this.evaluateBezier(this.startX, this.controlPointX, this.endX, t);
             let midPointY = this.evaluateBezier(this.startY, this.controlPointY, this.endY, t);
             let newControlPoint1X = this.startX + (this.controlPointX - this.startX) * t;
