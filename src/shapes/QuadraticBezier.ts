@@ -95,13 +95,13 @@ export class QuadraticBezierCurve implements IShape {
 
     private generateSubcurves() {
         if (!this.isMonotoneY()) {
-            let boundMax = this.yMin === this.startY || this.yMin === this.endY;
-            let midPointX = this.evaluateBezier(this.startX, this.controlPointX, this.endX, boundMax ? this.yMaxT : this.yMinT);
-            let midPointY = this.evaluateBezier(this.startY, this.controlPointY, this.endY, boundMax ? this.yMaxT : this.yMinT);
-            let newControlPoint1X = this.startX + (this.controlPointX - this.startX) * (boundMax ? this.yMaxT : this.yMinT);
-            let newControlPoint1Y = this.startY + (this.controlPointY - this.startY) * (boundMax ? this.yMaxT : this.yMinT);
-            let newControlPoint2X = this.controlPointX + (this.endX - this.controlPointX) * (boundMax ? this.yMaxT : this.yMinT);
-            let newControlPoint2Y = this.controlPointY + (this.endY - this.controlPointY) * (boundMax ? this.yMaxT : this.yMinT);
+            let t = (this.yMin === this.startY || this.yMin === this.endY)  ? this.yMaxT : this.yMinT;
+            let midPointX = this.evaluateBezier(this.startX, this.controlPointX, this.endX, t);
+            let midPointY = this.evaluateBezier(this.startY, this.controlPointY, this.endY, t);
+            let newControlPoint1X = this.startX + (this.controlPointX - this.startX) * t;
+            let newControlPoint1Y = this.startY + (this.controlPointY - this.startY) * t;
+            let newControlPoint2X = this.controlPointX + (this.endX - this.controlPointX) * t;
+            let newControlPoint2Y = this.controlPointY + (this.endY - this.controlPointY) * t;
             this.yMonoSubcurves.push(new QuadraticBezierCurve(this.startX, this.startY, newControlPoint1X, newControlPoint1Y, midPointX, midPointY));
             this.yMonoSubcurves.push(new QuadraticBezierCurve(midPointX, midPointY, newControlPoint2X, newControlPoint2Y, this.endX, this.endY));
         }
@@ -156,9 +156,10 @@ export class QuadraticBezierCurve implements IShape {
             return 0;
         }
         let roots: [number, number] = [null, null];
-        let n = getUnitQuadRoots(this.taY, this.mbY, this.startY - point[1], roots), xt;
+        let n = getUnitQuadRoots(this.taY, this.mbY, this.startY - point[1], roots);
         if (n === 0) {
-            return (wn === 1) ? (this.startX < point[0] ? wn : 0) : (this.endX < point[0] ? wn : 0);
+            //return (wn === 1) ? (this.startX < point[0] ? wn : 0) : (this.endX < point[0] ? wn : 0);
+            return (wn === 1 ? this.startX : this.endX) < point[0] ? wn : 0;
         } else {
             return (this.evaluateAsPolynomial(this.taX, this.mbX, this.startX, roots[0]) < point[0]) ? wn : 0;
         }
