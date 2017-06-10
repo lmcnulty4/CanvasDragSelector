@@ -129,12 +129,14 @@ export class QuadraticBezierCurve implements IShape {
     }
 
     private monoWind(point: [number, number]) {
-        let wn = 1, y0 = this.startY, y2 = this.endY;
-        if (y0 > y2) { wn = -1; y0 = this.endY, y2 = this.startY; }
-        if (point[1] < y0 || point[1] >= y2) {
-            return 0;
+        let wn = 1;
+        if (this.startY > this.endY) {
+            wn = -1;
+            if (point[1] < this.endY || point[1] >= this.startY) return 0; 
+        } else {
+            if (point[1] < this.startY || point[1] >= this.endY) return 0;
         }
-        let roots: [number, number] = [null, null];
+        let roots: [number, number] = <any>[];
         let n = getUnitQuadRoots(this.taY, this.mbY, this.startY - point[1], roots);
         if (n === 0) {
             //return (wn === 1) ? (this.startX < point[0] ? wn : 0) : (this.endX < point[0] ? wn : 0);
