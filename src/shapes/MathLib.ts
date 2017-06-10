@@ -1,4 +1,13 @@
 
+
+export const TAU = 2 * Math.PI;
+export const HALF_PI = Math.PI / 2;
+export const THREE_HALF_PI = 3 * Math.PI / 2;
+export const EPSILON = 1e-06;
+
+const MIN_UNIT = 0 - EPSILON;
+const MAX_UNIT = 1 + EPSILON;
+
 function uDivide(t: number, b: number, r: [number, number], incr: number) {
     if (t < 0) {
         t = -t; b = -b;
@@ -21,7 +30,6 @@ export function getUnitQuadRoots(a: number, b: number, c: number, roots: [number
     return rootCount;
 }
 
-export const TAU = 2 * Math.PI;
-export const HALF_PI = Math.PI / 2;
-export const THREE_HALF_PI = 3 * Math.PI / 2;
-export const EPSILON = 1e-06;
+export function isUnit(a: number) {
+    return a > MIN_UNIT && a < MAX_UNIT;
+}

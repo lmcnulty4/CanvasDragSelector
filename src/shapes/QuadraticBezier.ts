@@ -1,7 +1,7 @@
 import { IShape } from "./Base";
 import { Rectangle } from "./Rectangle";
 import { ICanvasContext } from "../TrackingContext";
-import { getUnitQuadRoots } from "./MathLib";
+import { getUnitQuadRoots, isUnit } from "./MathLib";
 
 export class QuadraticBezierCurve implements IShape {
 
@@ -60,7 +60,7 @@ export class QuadraticBezierCurve implements IShape {
             this.bounds[incr] = start;
             this.bounds[incr+2] = end;
         }
-        if (tVal > 0 && tVal < 1) {
+        if (isUnit(tVal)) {
             let val = this.evaluateBezier(start, cp, end, tVal);
             if (val < this.bounds[incr]) { this.bounds[incr] = val; }
             if (val > this.bounds[incr+2]) { this.bounds[incr+2] = val; }

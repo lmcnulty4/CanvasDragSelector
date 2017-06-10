@@ -1,7 +1,7 @@
 import { IShape } from "./Base";
 import { Rectangle } from "./Rectangle";
 import { ICanvasContext } from "../TrackingContext";
-import { getUnitQuadRoots, EPSILON } from "./MathLib";
+import { getUnitQuadRoots, isUnit } from "./MathLib";
 
 export class CubicBezierCurve implements IShape {
 
@@ -205,18 +205,18 @@ export class CubicBezierCurve implements IShape {
             let r1 = sqrtmq * Math.cos(thta) - bo3a;
             let r2 = sqrtmq * Math.cos(thta + 2.0943951024) - bo3a; // constant = 2pi/3
             let r3 = sqrtmq * Math.cos(thta + 4.1887902048) - bo3a; // constant = 4pi/3
-            if (r1 >= 0 && r1 < 1 || Math.abs(r1) < EPSILON) roots[n++] = r1;
-            if (r2 >= 0 && r2 < 1 || Math.abs(r2) < EPSILON) roots[n++] = r2;
-            if (r3 >= 0 && r3 < 1 || Math.abs(r3) < EPSILON) roots[n++] = r3;
+            if (isUnit(r1)) roots[n++] = r1;
+            if (isUnit(r2)) roots[n++] = r2;
+            if (isUnit(r3)) roots[n++] = r3;
         } else if (D > 0) { // 1 real root
             let sqrtD = Math.sqrt(D), r1 = Math.cbrt(r + sqrtD) + Math.cbrt(r - sqrtD) - bo3a;
-            if (r1 >= 0 && r1 < 1 || Math.abs(r1) < EPSILON) roots[n++] = r1;
+            if (isUnit(r1)) roots[n++] = r1;
         } else {// D == 0, 3 roots, 2 unique roots
             let S = Math.cbrt(r);
             let r1 = 2 * S - bo3a;
             let r2 = -S - bo3a;
-            if (r1 >= 0 && r1 < 1 || Math.abs(r1) < EPSILON) roots[n++] = r1;
-            if (r2 >= 0 && r2 < 1 || Math.abs(r2) < EPSILON) roots[n++] = r2;
+            if (isUnit(r1)) roots[n++] = r1;
+            if (isUnit(r2)) roots[n++] = r2;
         }
         return n;
     }
