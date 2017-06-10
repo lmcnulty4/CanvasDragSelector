@@ -113,8 +113,8 @@ export class Arc implements IShape {
         let os = Math.sqrt(this.radius*this.radius/(1+mInv*mInv));
         this.centerX = tX + os;
         this.centerY = tY + os * mInv;
-        let d1 = Math.abs(Math.sqrt((this.tangent1X - this.centerX)*(this.tangent1X - this.centerX) + (this.tangent1Y - this.centerY)*(this.tangent1Y - this.centerY)) - this.radius);
-        let d2 = Math.abs(Math.sqrt((this.tangent2X - this.centerX)*(this.tangent2X - this.centerX) + (this.tangent2Y - this.centerY)*(this.tangent2Y - this.centerY)) - this.radius);
+        let d1 = Math.abs(((this.tangent1X - this.centerX)*(this.tangent1X - this.centerX) + (this.tangent1Y - this.centerY)*(this.tangent1Y - this.centerY)) - this.radius*this.radius);
+        let d2 = Math.abs(((this.tangent2X - this.centerX)*(this.tangent2X - this.centerX) + (this.tangent2Y - this.centerY)*(this.tangent2Y - this.centerY)) - this.radius*this.radius);
         if (d1 > EPSILON || d2 > EPSILON) {
             this.centerX = tX - os;
             this.centerY = tY - os * mInv;
@@ -137,24 +137,21 @@ export class Arc implements IShape {
     }
 
     intersects(rect: [number,number,number,number]) {
-        let x0 = rect[0] - this.radius, 
-            y0 = rect[1] - this.radius, 
-            x1 = rect[0] + rect[2] + this.radius,
-            y1 = rect[1] + rect[3] + this.radius;
-        if (!(this.centerX > x0 && this.centerY > y0 && this.centerX < x1 && this.centerY < y1)) {
+        if (!(this.centerX > rect[0] - this.radius && this.centerY > rect[1] - this.radius && 
+            this.centerX < rect[0] + rect[2] + this.radius && this.centerY < rect[1] + rect[3] + this.radius)) {
             return false;
         }
         // Translate rect so that circle is centred at 0,0
-        rect[0] -= this.centerX;
-        rect[1] -= this.centerY;
+        let r0 = rect[0] - this.centerX;
+        let r1 = rect[1] - this.centerY;
         // bottom line
-        if (this.intersectsSegment(rect[0], rect[0] + rect[2], rect[1] + rect[3], true)) return true;
+        if (this.intersectsSegment(r0, r0 + rect[2], r1 + rect[3], true)) return true;
         // right line
-        if (this.intersectsSegment(rect[1], rect[1] + rect[3], rect[0] + rect[2], false)) return true;
+        if (this.intersectsSegment(r1, r1 + rect[3], r0 + rect[2], false)) return true;
         // top line
-        if (this.intersectsSegment(rect[0], rect[0] + rect[2], rect[1], true)) return true;
+        if (this.intersectsSegment(r0, r0 + rect[2], r1, true)) return true;
         // left line
-        if (this.intersectsSegment(rect[1], rect[1] + rect[3], rect[0], false)) return true;
+        if (this.intersectsSegment(r1, r1 + rect[3], r0, false)) return true;
         return false;
     }
 
