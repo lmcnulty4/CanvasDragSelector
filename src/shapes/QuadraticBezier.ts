@@ -11,15 +11,9 @@ export class QuadraticBezierCurve implements IShape {
     private endX: number;
     private endY: number;
     // AABB:
-    private xMin: number;
-    private xMax: number;
-    private yMin: number;
-    private yMax: number;
+    private bounds: number[] = [];
     // t values for AABB
-    private xMinT: number;
-    private xMaxT: number;
-    private yMinT: number;
-    private yMaxT: number;
+    private tBounds: number[] = [];
     // Intersection coefficients:
     private mbX: number;
     private mbY: number;
@@ -42,7 +36,9 @@ export class QuadraticBezierCurve implements IShape {
         this.mbY = 2 * (startPointY - controlPointY);
         this.taX = 2 * (startPointX - controlPointX - controlPointX + endPointX);
         this.taY = 2 * (startPointY - controlPointY - controlPointY + endPointY);
-        this.calculateAABB(startPointX, startPointY, controlPointX, controlPointY, endPointX, endPointY);
+        //this.calculateAABB(startPointX, startPointY, controlPointX, controlPointY, endPointX, endPointY);
+        this.calculate1dAABB(startPointX, controlPointX, endPointX, this.mbX / this.taX, 0);
+        this.calculate1dAABB(startPointY, controlPointY, endPointY, this.mbY / this.taY, 1);
         this.generateSubcurves();
     }
 
@@ -55,39 +51,24 @@ export class QuadraticBezierCurve implements IShape {
     }
 
     getBounds(): [number,number,number,number] {
-        return [this.xMin, this.yMin, this.xMax, this.yMax];
+        return [this.bounds[0], this.bounds[1], this.bounds[2], this.bounds[3]];
     }
 
-    private calculateAABB(startPointX: number, startPointY: number, controlPointX: number, controlPointY: number, endPointX: number, endPointY: number) {
-        // t value for derivative
-        let tX = this.mbX / this.taX;
-        let tY = this.mbY / this.taY;
-        // Set bounds
-        if (endPointX < startPointX) {
-            this.xMin = endPointX; this.xMinT = 1;
-            this.xMax = startPointX; this.xMinT = 0;
+    private calculate1dAABB(start: number, cp: number, end: number, tVal: number, incr: number) {
+        if (end < start) {
+            this.bounds[incr] = end; this.tBounds[incr] = 1;
+            this.bounds[incr+2] = start; this.tBounds[incr+2] = 0;
         } else {
-            this.xMin = startPointX; this.xMinT = 0;
-            this.xMax = endPointX; this.xMinT = 1;
+            this.bounds[incr] = start; this.tBounds[incr] = 0;
+            this.bounds[incr+2] = end; this.tBounds[incr+2] = 1;
         }
-        if (endPointY < startPointY) {
-            this.yMin = endPointY; this.yMinT = 1;
-            this.yMax = startPointY; this.yMinT = 0;
-        } else {
-            this.yMin = startPointY; this.yMinT = 0;
-            this.yMax = endPointY; this.yMinT = 1;
-        }
-        if (tX > 0 && tX < 1) {
-            let xt = this.evaluateBezier(startPointX, controlPointX, endPointX, tX);
-            if (xt < this.xMin) { this.xMin = xt; this.xMinT = tX; }
-            if (xt > this.xMax) { this.xMax = xt; this.xMaxT = tX; }
-        }
-        if (tY > 0 && tY < 1) {
-            let xt = this.evaluateBezier(startPointY, controlPointY, endPointY, tY);
-            if (xt < this.yMin) { this.yMin = xt; this.yMinT = tY; }
-            if (xt > this.yMax) { this.yMax = xt; this.yMaxT = tY; }
+        if (tVal > 0 && tVal < 1) {
+            let val = this.evaluateBezier(start, cp, end, tVal);
+            if (val < this.bounds[incr]) { this.bounds[incr] = val; this.tBounds[incr] = tVal; }
+            if (val > this.bounds[incr+2]) { this.bounds[incr+2] = val; this.tBounds[incr+2] = tVal; }
         }
     }
+    
     // Note: In 1 dimension only
     private evaluateBezier(startPoint:number, controlPoint: number, endPoint: number, t: number) {
         return (1 - t) * (1 - t) * startPoint + 2 * (1 - t) * t * controlPoint + t * t * endPoint;
@@ -95,7 +76,7 @@ export class QuadraticBezierCurve implements IShape {
 
     private generateSubcurves() {
         if (!this.isMonotoneY()) {
-            let t = (this.yMin === this.startY || this.yMin === this.endY)  ? this.yMaxT : this.yMinT;
+            let t = (this.bounds[1] === this.startY || this.bounds[1] === this.endY)  ? this.tBounds[3] : this.tBounds[1];
             let midPointX = this.evaluateBezier(this.startX, this.controlPointX, this.endX, t);
             let midPointY = this.evaluateBezier(this.startY, this.controlPointY, this.endY, t);
             let newControlPoint1X = this.startX + (this.controlPointX - this.startX) * t;
@@ -108,7 +89,7 @@ export class QuadraticBezierCurve implements IShape {
     }
 
     private isMonotoneY() {
-        return (this.startY === this.yMin && this.endY === this.yMax) || (this.endY === this.yMin && this.startY === this.yMax);
+        return (this.startY === this.bounds[1] && this.endY === this.bounds[3]) || (this.endY === this.bounds[1] && this.startY === this.bounds[3]);
     }
 
     // Assume transformation of rect & this curve identical 
@@ -117,7 +98,7 @@ export class QuadraticBezierCurve implements IShape {
         if (rect[0] <= this.startX && rect[0] + rect[2] >= this.startX && rect[1] <= this.startY && rect[1] + rect[3] >= this.startY) return true;
         if (rect[0] <= this.endX && rect[0] + rect[2] >= this.endX && rect[1] <= this.endY && rect[1] + rect[3] >= this.endY) return true;
         // If it doesn't intersect bounding box, exit
-        if (!Rectangle.rectanglesIntersect(rect, [this.xMin, this.yMin, this.xMax - this.xMin, this.yMax - this.yMin])) return false;
+        if (!Rectangle.rectanglesIntersect(rect, [this.bounds[0], this.bounds[1], this.bounds[2] - this.bounds[0], this.bounds[3] - this.bounds[1]])) return false;
         // check each line
         // bottom line
         if (this.curveIntersectsLine(this.taY, this.mbY, this.startY - (rect[1] + rect[3]), this.taX, this.mbX, this.startX, rect[0], rect[0] + rect[2])) return true;
