@@ -33,11 +33,7 @@ export class Arc implements IShape {
         this.endX = endPointX;
         this.endY = endPointY;
         this.getTangentPoints(startPointX, startPointY);
-        if (this.controlY != startPointY) { // if one is horizontal the other isn't
-            this.getCenter(-(this.controlX - startPointX) / (this.controlY - startPointY), this.tangent1X, this.tangent1Y);
-        } else {
-            this.getCenter(-(this.controlX - endPointX) / (this.controlY - endPointY), this.tangent2X, this.tangent2Y);
-        }
+        this.getCenter();
         this.getAngles();
         this.calculateAABB();
     }
@@ -105,20 +101,18 @@ export class Arc implements IShape {
         this.tangent1Y = this.controlY - dist * beforeY;
         this.tangent2X = this.controlX + dist * afterX;
         this.tangent2Y = this.controlY + dist * afterY;
-        this.weight = Math.sqrt(0.5 + 0.5*(beforeX * afterX + beforeY * afterY));
+        this.weight = Math.sqrt(0.5 + 0.5   *(beforeX * afterX + beforeY * afterY));
     }
 
-    private getCenter(mInv: number, tX: number, tY: number) {
-        // CANNOT figure out how to determine whether to + or - this value (clockwise doesn't always work) so test with + if dists = rad and if not then -
-        let os = Math.sqrt(this.radius*this.radius/(1+mInv*mInv));
-        this.centerX = tX + os;
-        this.centerY = tY + os * mInv;
-        let d1 = Math.abs(((this.tangent1X - this.centerX)*(this.tangent1X - this.centerX) + (this.tangent1Y - this.centerY)*(this.tangent1Y - this.centerY)) - this.radius*this.radius);
-        let d2 = Math.abs(((this.tangent2X - this.centerX)*(this.tangent2X - this.centerX) + (this.tangent2Y - this.centerY)*(this.tangent2Y - this.centerY)) - this.radius*this.radius);
-        if (d1 > EPSILON || d2 > EPSILON) {
-            this.centerX = tX - os;
-            this.centerY = tY - os * mInv;
-        }
+    // Awesome explanation here: https://math.stackexchange.com/a/87374
+    private getCenter() {
+        let tx_dist = this.tangent2X - this.tangent1X;
+        let ty_dist = this.tangent2Y - this.tangent1Y;
+        let d = (tx_dist)*(tx_dist) + (ty_dist)*(ty_dist);
+        let sqrt_d = Math.sqrt(d);
+        let h = Math.sqrt(this.radius * this.radius - d/4);
+        this.centerX = (this.tangent1X + this.tangent2X)/2 + (this.clockwise ? -1 : 1) * h * (ty_dist) / sqrt_d;
+        this.centerY = (this.tangent1Y + this.tangent2Y)/2 - (this.clockwise ? -1 : 1) * h * (tx_dist) / sqrt_d;
     }
 
     private getAngles() {
