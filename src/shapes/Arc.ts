@@ -34,7 +34,8 @@ export class Arc implements IShape {
         this.endY = endPointY;
         this.getTangentPoints(startPointX, startPointY);
         this.getCenter();
-        this.getAngles();
+        let angles:number[] = [];
+        [this.startAngle, this.endAngle] = this.getAngles(this.tangent1X, this.tangent1Y, this.tangent2X, this.tangent2Y);
         this.calculateAABB();
     }
     
@@ -115,11 +116,13 @@ export class Arc implements IShape {
         this.centerY = (this.tangent1Y + this.tangent2Y)/2 - (this.clockwise ? -1 : 1) * h * (tx_dist) / sqrt_d;
     }
 
-    private getAngles() {
-        this.startAngle = Math.atan2(this.tangent1Y - this.centerY, this.tangent1X - this.centerX);
-        this.endAngle = Math.atan2(this.tangent2Y - this.centerY, this.tangent2X - this.centerX);
-        this.startAngle = (TAU + this.startAngle) % TAU;
-        this.endAngle = (TAU + this.endAngle) % TAU;
+    private getAngles(t1x: number, t1y: number, t2x: number, t2y: number) {
+        let angles: number[] = [];
+        angles[0] = Math.atan2(t1y - this.centerY, t1x - this.centerX);
+        angles[1] = Math.atan2(t2y - this.centerY, t2x - this.centerX);
+        angles[0] = (TAU + angles[0]) % TAU;
+        angles[1] = (TAU + angles[1]) % TAU;
+        return angles;
     }
 
     getStartPoint(): [number, number] {
@@ -139,40 +142,63 @@ export class Arc implements IShape {
         let r0 = rect[0] - this.centerX;
         let r1 = rect[1] - this.centerY;
         // bottom line
-        if (this.intersectsSegment(r0, r0 + rect[2], r1 + rect[3], true)) return true;
+        if (this.intersectsSegment(r0, r0 + rect[2], r1 + rect[3], this.startAngle, this.endAngle, true)) return true;
         // right line
-        if (this.intersectsSegment(r1, r1 + rect[3], r0 + rect[2], false)) return true;
+        if (this.intersectsSegment(r1, r1 + rect[3], r0 + rect[2], this.startAngle, this.endAngle, false)) return true;
         // top line
-        if (this.intersectsSegment(r0, r0 + rect[2], r1, true)) return true;
+        if (this.intersectsSegment(r0, r0 + rect[2], r1, this.startAngle, this.endAngle, true)) return true;
         // left line
-        if (this.intersectsSegment(r1, r1 + rect[3], r0, false)) return true;
+        if (this.intersectsSegment(r1, r1 + rect[3], r0, this.startAngle, this.endAngle, false)) return true;
         return false;
     }
 
-    private intersectsSegment(startPoint: number, endPoint: number, axisDistance: number, horizontal: boolean) {
+    windingNumber(point: [number, number]) {
+        let isMono = (this.tangent1X <= this.centerX && this.tangent2X >= this.centerX);
+        if (!isMono) {
+            return this.monoWind(point, this.tangent1X, this.tangent1Y, this.tangent2X, this.tangent2Y);
+        } else {
+            let yVal = (this.tangent1Y === this.yMax || this.tangent2Y === this.yMax) ? this.yMin : this.yMax;
+            return this.monoWind(point, this.tangent1X, this.tangent1Y, this.centerX, yVal) + this.monoWind(point, this.centerX, yVal, this.tangent2X, this.tangent2Y);
+        }
+    }
+
+    private monoWind(point: [number, number], t1x: number, t1y: number, t2x: number, t2y: number) {
+        let wn = 1;
+        if (t1y > t2y) {
+            if (point[1] < t2y || point[1] >= t1y) return 0;
+            wn = -1;
+        } else {
+            if (point[1] < t1y || point[1] >= t2y) return 0;
+        }
+        // Nearly sure the below can be done in a cleverer way
+        let angles = this.getAngles(t1x, t1y, t2x, t2y);
+        return (this.intersectsSegment(-Infinity, point[0] - this.centerX, point[1] - this.centerY, angles[0], angles[1], true)) ? wn : 0;
+    }
+
+    private intersectsSegment(startPoint: number, endPoint: number, axisDistance: number, startAngle: number, endAngle: number, horizontal: boolean) {
         // x^2 + y^2 = r^2
         // y = mx + c with m = 0 => y = c = axisDistance
         // x^2 + axisDistance^2 = r^2, x = sqrt(r^2 - axisDistance^2)
         if (this.radius < Math.abs(axisDistance)) return false;
         let intcpt = Math.sqrt(this.radius * this.radius - axisDistance * axisDistance);
-        if (this.betweenArc(horizontal ? Math.atan2(axisDistance, intcpt) : Math.atan2(intcpt, axisDistance)) && intcpt >= startPoint && intcpt <= endPoint) return true;
-        if (this.betweenArc(horizontal ? Math.atan2(axisDistance, -intcpt) : Math.atan2(-intcpt, axisDistance)) && -intcpt >= startPoint && -intcpt <= endPoint) return true;
+        if (this.betweenArc(horizontal ? Math.atan2(axisDistance, intcpt) : Math.atan2(intcpt, axisDistance), startAngle, endAngle) && intcpt >= startPoint && intcpt <= endPoint) return true;
+        if (this.betweenArc(horizontal ? Math.atan2(axisDistance, -intcpt) : Math.atan2(-intcpt, axisDistance), startAngle, endAngle) && -intcpt >= startPoint && -intcpt <= endPoint) return true;
         return false;
     }
 
-    private betweenArc(angle: number) {
+    private betweenArc(angle: number, startAngle: number, endAngle: number) {
         angle = (TAU + (angle % TAU)) % TAU;
-        if(this.startAngle <= this.endAngle) {
-            if(this.endAngle - this.startAngle <= Math.PI) {
-                return this.startAngle <= angle && angle <= this.endAngle;
+        if(startAngle <= endAngle) {
+            if(endAngle - startAngle <= Math.PI) {
+                return startAngle <= angle && angle <= endAngle;
             } else {
-                return this.endAngle <= angle || angle <= this.startAngle;
+                return endAngle <= angle || angle <= startAngle;
             }
         } else {
-            if(this.startAngle - this.endAngle <= Math.PI) {
-                return this.endAngle <= angle && angle <= this.startAngle;
+            if(startAngle - endAngle <= Math.PI) {
+                return endAngle <= angle && angle <= startAngle;
             } else {
-                return this.startAngle <= angle || angle <= this.endAngle;
+                return startAngle <= angle || angle <= endAngle;
             }
         }
     }
