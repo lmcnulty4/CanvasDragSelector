@@ -75,17 +75,17 @@ export class TrackingContext {
         }
     }
 
-    renderIntersections(rect: [number, number, number, number], contextRenderer: () => void) {
+    renderIntersections(rect: [number, number, number, number], anchorPoint: [number, number], contextRenderer: (ctx: CanvasRenderingContext2D) => void) {
         this._context.save();
         for (let i = 0; i < this.shapes.length; i++) {
-            if (this.shapes[i].intersects(rect)) {
+            if (this.shapes[i].intersects(rect) || this.shapes[i].containsPoint(anchorPoint)) {
                 this.renderShape(this.shapes[i], contextRenderer);
             }
         }
         for (let i = 0; i < this.features.length; i++) {
             let feature = this.features[i];
             for (let j = 0; j < feature.length; j++) {
-                if (feature[j].intersects(rect)) {
+                if (feature[j].intersects(rect, anchorPoint)) {
                     this.renderFeature(feature, contextRenderer);
                     break;
                 }
@@ -94,16 +94,16 @@ export class TrackingContext {
         this._context.restore();
     }
 
-    private renderFeature(feature: Subpath[], contextRenderer: () => void) {
+    private renderFeature(feature: Subpath[], contextRenderer: (ctx: CanvasRenderingContext2D) => void) {
         for (let i = 0, l = feature.length; i < l; i++) {
             feature[i].render(this._contextMethods);
         }
-        contextRenderer();
+        contextRenderer(this._context);
     }
 
-    private renderShape(shape: (Circle | Rectangle), contextRenderer: () => void) {
+    private renderShape(shape: (Circle | Rectangle), contextRenderer: (ctx: CanvasRenderingContext2D) => void) {
         shape.render(this._contextMethods);
-        contextRenderer();
+        contextRenderer(this._context);
     }
 
     private ensurePathInProgress() {
