@@ -34,7 +34,6 @@ export class Arc implements IShape {
         this.endY = endPointY;
         this.getTangentPoints(startPointX, startPointY);
         this.getCenter();
-        let angles:number[] = [];
         [this.startAngle, this.endAngle] = this.getAngles(this.tangent1X, this.tangent1Y, this.tangent2X, this.tangent2Y);
         this.calculateAABB();
     }
@@ -117,7 +116,7 @@ export class Arc implements IShape {
     }
 
     private getAngles(t1x: number, t1y: number, t2x: number, t2y: number) {
-        let angles: number[] = [];
+        let angles: number[] = [0,0];
         angles[0] = Math.atan2(t1y - this.centerY, t1x - this.centerX);
         angles[1] = Math.atan2(t2y - this.centerY, t2x - this.centerX);
         angles[0] = (TAU + angles[0]) % TAU;
