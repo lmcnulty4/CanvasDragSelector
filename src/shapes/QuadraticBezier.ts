@@ -44,6 +44,10 @@ export class QuadraticBezierCurve implements IShape {
         context.quadraticCurveTo(this.controlPointX, this.controlPointY, this.endX, this.endY);
     }
 
+    getStartPoint() : [number, number] {
+        return [this.startX, this.startY];
+    }
+
     getEndPoint() : [number, number] {
         return [this.endX, this.endY];
     }

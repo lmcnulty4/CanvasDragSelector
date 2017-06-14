@@ -65,6 +65,10 @@ export class CubicBezierCurve implements IShape {
         context.bezierCurveTo(this.controlPoint1X, this.controlPoint1Y, this.controlPoint2X, this.controlPoint2Y, this.endX, this.endY);
     }
 
+    getStartPoint() : [number, number] {
+        return [this.startX, this.startY];
+    }
+
     getEndPoint() : [number, number] {
         return [this.endX, this.endY];
     }
